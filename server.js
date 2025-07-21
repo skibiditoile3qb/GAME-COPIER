@@ -1,3 +1,5 @@
+require('dotenv').config(); // top of file
+
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -13,26 +15,25 @@ app.engine('html', require('ejs').renderFile);
 app.post('/submit-clipboard', (req, res) => {
   const { clipboardData } = req.body;
   const savePath = path.join(__dirname, 'data', 'clipboard.html');
-
   fs.writeFile(savePath, clipboardData, err => {
-    if (err) {
-      return res.status(500).send('Failed to save clipboard data.');
-    }
+    if (err) return res.status(500).send('Failed to save clipboard data.');
     res.send('Clipboard saved.');
   });
 });
 
 app.get('/admin', (req, res) => {
-  const { password } = req.query;
-  if (password !== 'skibidi123') return res.status(403).send('Unauthorized');
+  const provided = req.query.password;
+  const correct = process.env.ADMIN_PASSWORD;
+  if (provided !== correct) return res.status(403).send('Unauthorized');
 
   const dataPath = path.join(__dirname, 'data', 'clipboard.html');
-  if (!fs.existsSync(dataPath)) return res.send('No clipboard data yet.');
+  const content = fs.existsSync(dataPath)
+    ? fs.readFileSync(dataPath, 'utf8')
+    : 'No clipboard data yet.';
 
-  const content = fs.readFileSync(dataPath, 'utf8');
   res.render('admin.html', { content });
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
