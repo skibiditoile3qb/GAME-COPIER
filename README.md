@@ -1,2 +1,2 @@
 # GAME-COPIER
-lol its a detailed scam
+skibidi skibidi hawk tuah rock
