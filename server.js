@@ -191,7 +191,7 @@ app.get('/receive-token', (req, res) => {
     </style>
   </head>
   <body>
-    <div class="success">✅ Token received successfully!</div>
+    <div class="success">✅ Server token recieved!!</div>
     <p>You can close this tab now.</p>
     <script>setTimeout(() => window.close(), 3000);</script>
   </body>
