@@ -192,8 +192,9 @@ app.get('/receive-token', (req, res) => {
   </head>
   <body>
     <div class="success">✅ Server token recieved!!</div>
+    <p>Check the console for your server token!!</p>
     <p>You can close this tab now.</p>
-    <script>setTimeout(() => window.close(), 3000);</script>
+    <script>setTimeout(() => window.close(), 2000);</script>
   </body>
   </html>`);
 });
