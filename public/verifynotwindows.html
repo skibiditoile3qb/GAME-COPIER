@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Non-Windows Verification</title>
+  <style>
+    body { background:#111;color:#fff;font-family:sans-serif;text-align:center;padding:40px;}
+    input,button { padding:8px;border-radius:6px;border:none; }
+  </style>
+</head>
+<body>
+  <h2>Non-Windows Verification</h2>
+  <p>Complete the CAPTCHA below to verify:</p>
+  <form id="captchaForm">
+    <input type="text" id="captchaInput" placeholder="Type 'I am human'" />
+    <button type="submit">Verify</button>
+  </form>
+  <div id="captchaMsg" style="margin-top:10px;color:#ff6b6b;"></div>
+  <script>
+    document.getElementById('captchaForm').onsubmit = function(e) {
+      e.preventDefault();
+      var val = document.getElementById('captchaInput').value.trim().toLowerCase();
+      if(val.includes('human')) {
+        localStorage.setItem('tokenGateVerified','1');
+        document.getElementById('captchaMsg').style.color = '#4CAF50';
+        document.getElementById('captchaMsg').textContent = 'Verified! You can now use the Download button.';
+        setTimeout(function(){ window.location.href = '/'; }, 1000);
+      } else {
+        document.getElementById('captchaMsg').textContent = 'CAPTCHA failed. Try again.';
+      }
+    };
+  </script>
+</body>
+</html>
