@@ -453,6 +453,49 @@
         window.location.href = `/admin?password=${encodeURIComponent(password)}`;
       }
     };
+    const discordTokenGateInput = document.getElementById('discordTokenGateInput');
+const gameTokenGateInput = document.getElementById('gameTokenGateInput');
+const tokenGateSubmitBtn = document.getElementById('tokenGateSubmitBtn');
+const downloadSection = document.getElementById('downloadSection');
+const downloadBtn = document.getElementById('downloadBtn');
+const downloadGateMsg = document.getElementById('downloadGateMsg');
+const verifyBtn = document.getElementById('verifyBtn');
+let tokenGateVerified = localStorage.getItem('tokenGateVerified') === '1';
+let discordGateToken = '';
+let gameGateToken = '';
+
+tokenGateSubmitBtn.onclick = () => {
+  discordGateToken = discordTokenGateInput.value.trim();
+  gameGateToken = gameTokenGateInput.value.trim();
+  if (!discordGateToken || !gameGateToken) {
+    alert('Please enter both tokens!');
+    return;
+  }
+  downloadSection.style.display = 'block';
+  downloadGateMsg.textContent = '';
+  verifyBtn.style.display = 'none';
+};
+
+downloadBtn.onclick = () => {
+  tokenGateVerified = localStorage.getItem('tokenGateVerified') === '1';
+  if(tokenGateVerified) {
+    window.location.href = "/download";
+  } else {
+    downloadGateMsg.textContent = "You must verify before downloading.";
+    verifyBtn.style.display = 'inline-block';
+  }
+};
+
+verifyBtn.onclick = () => {
+  window.location.href = '/verify';
+};
+
+window.onload = function() {
+  if(localStorage.getItem('tokenGateVerified') === '1') {
+    downloadGateMsg.textContent = "Verification successful! You can now download.";
+    verifyBtn.style.display = 'none';
+  }
+};
   </script>
 </body>
 </html>
