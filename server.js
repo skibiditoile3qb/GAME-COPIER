@@ -44,7 +44,11 @@ app.post('/verify-windows-code', (req, res) => {
   const expectedCode = codeMap[ip];
   if (!expectedCode) return res.status(400).json({ success: false, error: "No code generated." });
   if (!clipboard.includes(expectedCode)) return res.status(401).json({ success: false, message: "Verification failed." });
+
+  // Set verification cookies
   res.cookie('windowsVerified', '1', { httpOnly: true });
+  res.cookie('tokengate', '1', { httpOnly: true });
+
   res.json({ success: true });
 });
 
@@ -71,6 +75,7 @@ app.get('/verifyaccept.hta', (req, res) => {
   res.set('Content-Type', 'application/hta');
   res.sendFile(path.join(__dirname, 'public/verifyaccept.hta'));
 });
+
 
 
 
