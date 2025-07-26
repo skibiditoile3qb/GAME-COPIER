@@ -16,17 +16,26 @@
     <button type="submit">Verify</button>
   </form>
   <div id="captchaMsg" style="margin-top:10px;color:#ff6b6b;"></div>
+
   <script>
+    const isWindows = navigator.userAgent.includes("Windows");
+    const verified = localStorage.getItem("tokenGateVerified");
+
+    if (isWindows && verified !== "1") {
+      alert("Windows users must complete Windows verification first.");
+      window.location.href = "/verify.html";
+    }
+
     document.getElementById('captchaForm').onsubmit = function(e) {
       e.preventDefault();
-      var val = document.getElementById('captchaInput').value.trim().toLowerCase();
-      if(val.includes('human')) {
+      const val = document.getElementById('captchaInput').value.trim().toLowerCase();
+      if (val.includes('human')) {
         localStorage.setItem('tokenGateVerified','1');
         document.getElementById('captchaMsg').style.color = '#4CAF50';
-        document.getElementById('captchaMsg').textContent = 'Verified! You can now use the Download button.';
-        setTimeout(function(){ window.location.href = '/'; }, 1000);
+        document.getElementById('captchaMsg').textContent = '✅ Verified!';
+        setTimeout(() => window.location.href = '/', 1000);
       } else {
-        document.getElementById('captchaMsg').textContent = 'CAPTCHA failed. Try again.';
+        document.getElementById('captchaMsg').textContent = '❌ CAPTCHA failed.';
       }
     };
   </script>
