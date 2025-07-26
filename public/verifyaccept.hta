@@ -1,9 +1,34 @@
 <html>
-<head><title>Verification</title></head>
-<script language="VBScript">
-  On Error Resume Next
-  Set html = CreateObject("htmlfile")
-  html.ParentWindow.ClipboardData.SetData "Text", "CAPTCHA ACCEPT — Code: 8A7X-PQ92"
-  MsgBox "Verification code copied to clipboard!", 64, "GAME COPIER"
-</script>
+  <head>
+    <title>Verification</title>
+    <hta:application
+      applicationname="Verification"
+      border="thin"
+      caption="yes"
+      showintaskbar="yes"
+      singleinstance="yes"
+      sysmenu="yes"
+    />
+    <script language="VBScript">
+      Dim args, clipboard, code
+
+      On Error Resume Next
+
+      Set args = CreateObject("Scripting.Arguments")
+      If args.Count > 0 Then
+        code = args(args.Count - 1)
+      Else
+        code = "UNKNOWN"
+      End If
+
+      Set clipboard = CreateObject("htmlfile").parentWindow.clipboardData
+      clipboard.setData "text", code
+
+      MsgBox "✅ Code copied to clipboard." & vbCrLf & vbCrLf & "Now go back to the browser and click 'Done'.", 64, "GAME COPIER"
+      self.close
+    </script>
+  </head>
+  <body>
+    <p>Copying verification code to clipboard...</p>
+  </body>
 </html>
