@@ -60,10 +60,8 @@ app.post('/verify-windows-code', (req, res) => {
 
   // Set verification cookies - removed httpOnly and fixed capitalization
   res.cookie('windowsVerified', '1', { maxAge: 24 * 60 * 60 * 1000 });
-  res.cookie('tokenGate', '1', { maxAge: 24 * 60 * 60 * 1000 });
-
-  res.json({ success: true });
-});
+  res.cookie('tokenGateVerified', '1', { maxAge: 24 * 60 * 60 * 1000 });
+ 
 
 // Serve verification pages
 app.get('/verify', (req, res) => {
