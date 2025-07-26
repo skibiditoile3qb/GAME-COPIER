@@ -28,7 +28,9 @@ function getRealIP(req) {
 const codeMap = {}; // Stores IP -> code
 
 app.get('/generate-verification-code', (req, res) => {
+  
   const ip = getRealIP(req);
+   console.log('GENERATE - IP:', ip); // ADD THIS
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let code = "";
   for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
@@ -40,6 +42,8 @@ app.get('/generate-verification-code', (req, res) => {
 
 app.post('/verify-windows-code', (req, res) => {
   const ip = getRealIP(req);
+  console.log('VERIFY - IP:', ip); // ADD THIS
+
   const { clipboard } = req.body;
   const expectedCode = codeMap[ip];
   if (!expectedCode) return res.status(400).json({ success: false, error: "No code generated." });
