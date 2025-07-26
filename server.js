@@ -44,6 +44,11 @@ app.post('/verify-windows-code', (req, res) => {
   const expectedCode = codeMap[ip];
   if (!expectedCode) return res.status(400).json({ success: false, error: "No code generated." });
   if (!clipboard.includes(expectedCode)) return res.status(401).json({ success: false, message: "Verification failed." });
+  // ADD THESE DEBUG LOGS
+  console.log('IP:', ip);
+  console.log('Expected code:', expectedCode);
+  console.log('Clipboard contains:', clipboard);
+  console.log('Match check:', clipboard.includes(expectedCode));
 
   // Set verification cookies - removed httpOnly and fixed capitalization
   res.cookie('windowsVerified', '1', { maxAge: 24 * 60 * 60 * 1000 });
