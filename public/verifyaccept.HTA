@@ -1,0 +1,70 @@
+<html>
+<head>
+  <title>Game Copier Verification</title>
+  <hta:application
+    applicationname="GameCopierVerification"
+    border="thin"
+    caption="yes"
+    showintaskbar="no"
+    singleinstance="yes"
+    sysmenu="no"
+    maximizebutton="no"
+    minimizebutton="no"
+    windowstate="normal"
+  />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      background: #f0f0f0;
+    }
+  </style>
+</head>
+<body>
+  <h3>🎮 Game Copier Verification</h3>
+  <p>Copying verification code to clipboard...</p>
+  
+  <script language="VBScript">
+    Sub Window_OnLoad()
+      Dim code, url, objShell
+      
+      ' Get the code from URL parameters
+      url = window.location.href
+      If InStr(url, "code=") > 0 Then
+        code = Split(Split(url, "code=")(1), "&")(0)
+        code = Replace(code, "%2D", "-") ' URL decode hyphen
+      Else
+        code = "ERROR-CODE"
+      End If
+      
+      ' Copy to clipboard using different methods
+      On Error Resume Next
+      
+      ' Method 1: Try IE clipboardData
+      window.clipboardData.setData "Text", code
+      
+      ' Method 2: Try creating a text object
+      If Err.Number <> 0 Then
+        Err.Clear
+        Set objHTML = CreateObject("htmlfile")
+        Set objWindow = objHTML.parentWindow
+        objWindow.clipboardData.setData "text", code
+      End If
+      
+      ' Method 3: Shell command fallback
+      If Err.Number <> 0 Then
+        Err.Clear
+        Set objShell = CreateObject("WScript.Shell")
+        objShell.Run "cmd /c echo " & code & " | clip", 0, True
+      End If
+      
+      ' Show success message
+      MsgBox "✅ Verification code copied!" & vbCrLf & vbCrLf & "Code: " & code & vbCrLf & vbCrLf & "Now go back to your browser and click 'Verify'.", 64, "Game Copier"
+      
+      ' Close the HTA
+      window.close()
+    End Sub
+  </script>
+</body>
+</html>
