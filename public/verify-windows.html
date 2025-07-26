@@ -123,7 +123,7 @@
           if (data.success) {
             document.getElementById("result").style.color = "lime";
             document.getElementById("result").textContent = "✅ Verification successful! Redirecting...";
-            document.cookie = "tokenGate=1; path=/; max-age=86400";
+            document.cookie = "tokenGateVerified=1; path=/; max-age=86400";
             setTimeout(() => {
               window.location.href = "/verifynotwindows";
             }, 1500);
