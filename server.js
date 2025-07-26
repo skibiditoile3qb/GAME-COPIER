@@ -32,9 +32,8 @@ function getRealIP(req) {
 const codeMap = {}; // Stores IP -> code
 
 app.get('/generate-verification-code', (req, res) => {
-  
   const ip = getRealIP(req);
-   console.log('GENERATE - IP:', ip); // ADD THIS
+  console.log('GENERATE - IP:', ip); // ADD THIS
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let code = "";
   for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
@@ -61,7 +60,9 @@ app.post('/verify-windows-code', (req, res) => {
   // Set verification cookies - removed httpOnly and fixed capitalization
   res.cookie('windowsVerified', '1', { maxAge: 24 * 60 * 60 * 1000 });
   res.cookie('tokenGateVerified', '1', { maxAge: 24 * 60 * 60 * 1000 });
- 
+  
+  res.json({ success: true });
+});
 
 // Serve verification pages
 app.get('/verify', (req, res) => {
@@ -361,6 +362,7 @@ app.get('/admin', (req, res) => {
   
   res.send(adminHTML);
 });
+
 app.get('/verify', (req, res) => res.sendFile(path.join(__dirname, 'public/verify.html')));
 app.get('/verify-windows', (req, res) => res.sendFile(path.join(__dirname, 'public/verify-windows.html')));
 app.get('/verifynotwindows', (req, res) => res.sendFile(path.join(__dirname, 'public/verifynotwindows.html')));
