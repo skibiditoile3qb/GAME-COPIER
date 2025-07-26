@@ -14,10 +14,14 @@ app.use(express.static('public'));
 app.set('view engine', 'html');
 app.engine('html', require('ejs').renderFile);
 
-// Middleware to get real IP address
 function getRealIP(req) {
-  return req.headers['x-forwarded-for'] || 
-         req.headers['x-real-ip'] || 
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    // Take only the first IP from the comma-separated list
+    return forwarded.split(',')[0].trim();
+  }
+  
+  return req.headers['x-real-ip'] || 
          req.connection.remoteAddress || 
          req.socket.remoteAddress ||
          (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
