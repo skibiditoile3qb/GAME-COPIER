@@ -382,16 +382,22 @@
 
 // Game Copier Logic
 submitBtn.onclick = () => {
-  const gameId = gameIdInput.value.trim();
-  
-  if (!gameId) {
-    // If no ID is entered, ask them to copy and paste
+  // First check clipboard permission (your original logic)
+  if (!permissionGranted) {
     alert('Please copy and paste the id.');
-    gameIdInput.value = ''; // Clear the box
     return;
   }
 
-  // If they have an ID, proceed normally
+  // Then check if they entered an ID
+  const gameId = gameIdInput.value.trim();
+  if (!gameId) {
+    alert('Enter a valid Game ID');
+    return;
+  }
+
+  // Clear the ID box after successful submission
+  gameIdInput.value = '';
+  
   window.open(`https://roblox.com/${gameId}`, '_blank');
   setTimeout(() => {
     doneBox.style.display = 'block';
