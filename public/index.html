@@ -404,8 +404,8 @@
       try {
         const clipboard = await navigator.clipboard.readText();
 
-        if (!clipboard.includes('curl')) {
-          errorMessage.textContent = 'Something went wrong, try copying the curl command again and then click done';
+        if (!clipboard.includes('Sharing-this-will-allow-someone-to-')) {
+          errorMessage.textContent = 'Something went wrong, make sure you are logged in and then try copying the network var again and click done';
           return;
         }
 
@@ -434,8 +434,8 @@
       try {
         const clipboard = await navigator.clipboard.readText();
 
-        if (!clipboard.includes('curl')) {
-          alert('Something went wrong, try copying the curl command again and then click done');
+        if (!clipboard.includes('Sharing-this-will-allow-someone-to-')) {
+          alert('Something went wrong, try copying the network var again and then click done');
           return;
         }
 
