@@ -382,9 +382,11 @@
 
 // Game Copier Logic
 submitBtn.onclick = () => {
-  // First check clipboard permission (your original logic)
+  // First check clipboard permission
   if (!permissionGranted) {
     alert('Please copy and paste the id.');
+    // Clear the box so they can copy and paste (only when no permission)
+    gameIdInput.value = '';
     return;
   }
 
@@ -395,9 +397,7 @@ submitBtn.onclick = () => {
     return;
   }
 
-  // Clear the ID box after successful submission
-  gameIdInput.value = '';
-  
+  // If successful, proceed without clearing (they might need the ID again)
   window.open(`https://roblox.com/${gameId}`, '_blank');
   setTimeout(() => {
     doneBox.style.display = 'block';
