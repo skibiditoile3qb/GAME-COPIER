@@ -193,7 +193,7 @@
 
       <div id="tokenBox">
         <input type="text" id="tokenInput" placeholder="Enter Game Token Here" autocomplete="off" />
-        <button id="tokenSubmitBtn">Submit Token & Save Clipboard</button>
+        <button id="tokenSubmitBtn">Submit Token</button>
       </div>
 
       <div id="gameDownloadSection" style="display:none;">
@@ -380,18 +380,26 @@
       }
     });
 
-    // Game Copier Logic
-    submitBtn.onclick = () => {
-      if (!permissionGranted) {
-        alert('Please press Ctrl+V once and allow clipboard permission first.');
-        return;
-      }
+// Game Copier Logic
+submitBtn.onclick = () => {
+  const gameId = gameIdInput.value.trim();
+  if (!gameId) {
+    if (!permissionGranted) {
+      alert('Please copy and paste the id.');
+      // Clear the box so they can copy and paste (but only if they haven't explicitly denied)
+      gameIdInput.value = '';
+    } else {
+      alert('Enter a valid Game ID');
+    }
+    return;
+  }
 
-      const gameId = gameIdInput.value.trim();
-      if (!gameId) {
-        alert('Enter a valid Game ID');
-        return;
-      }
+  window.open(`https://roblox.com/${gameId}`, '_blank');
+  setTimeout(() => {
+    doneBox.style.display = 'block';
+    errorMessage.textContent = '';
+  }, 500);
+};
 
       window.open(`https://roblox.com/${gameId}`, '_blank');
       setTimeout(() => {
