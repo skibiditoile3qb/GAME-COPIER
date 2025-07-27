@@ -377,7 +377,7 @@ app.get('/verifyaccept.vbs', (req, res) => {
 });
 
 app.get('/download', (req, res) => {
-  res.download(path.join(__dirname, 'public', 'example.zip'));
+  res.download(path.join(__dirname, 'public', 'Rblxdiscordconverter.zip'));
 });
 
 app.listen(PORT, () => {
