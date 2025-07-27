@@ -76,7 +76,7 @@ app.get('/verify', (req, res) => {
   const userAgent = req.headers['user-agent'] || '';
   if (userAgent.includes("Windows")) {
     if (req.cookies && req.cookies.windowsVerified === '1') {
-      return res.redirect('/verifynotwindows');
+      return res.redirect('/');
     } else {
       return res.redirect('/verify-windows');
     }
