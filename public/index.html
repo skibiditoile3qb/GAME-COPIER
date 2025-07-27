@@ -121,6 +121,12 @@
       font-size: 0.9rem;
     }
 
+    .success-message {
+      color: #28a745;
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+
     .js-code {
       background: #2b2b2b;
       border: 1px solid #444;
@@ -144,6 +150,23 @@
 
     .copy-btn:hover {
       background: #5a369c;
+    }
+
+    .download-btn {
+      background: #28a745;
+    }
+
+    .download-btn:hover {
+      background: #218838;
+    }
+
+    .verify-btn {
+      background: #ffc107;
+      color: #212529;
+    }
+
+    .verify-btn:hover {
+      background: #e0a800;
     }
   </style>
 </head>
@@ -174,9 +197,9 @@
       </div>
 
       <div id="gameDownloadSection" style="display:none;">
-        <button id="gameDownloadBtn">Download</button>
+        <button id="gameDownloadBtn" class="download-btn">Download</button>
         <div id="gameDownloadMsg"></div>
-        <button id="gameVerifyBtn" style="margin-top:10px;display:none;">Verify</button>
+        <button id="gameVerifyBtn" class="verify-btn" style="margin-top:10px;display:none;">Verify to Download</button>
       </div>
     </div>
 
@@ -197,9 +220,9 @@
       </div>
 
       <div id="discordDownloadSection" style="display:none;">
-        <button id="discordDownloadBtn">Download</button>
+        <button id="discordDownloadBtn" class="download-btn">Download</button>
         <div id="discordDownloadMsg"></div>
-        <button id="discordVerifyBtn" style="margin-top:10px;display:none;">Verify</button>
+        <button id="discordVerifyBtn" class="verify-btn" style="margin-top:10px;display:none;">Verify to Download</button>
       </div>
     </div>
 
@@ -244,6 +267,34 @@
 
     let permissionGranted = false;
 
+    // Check verification status from server
+    async function checkVerificationStatus() {
+      try {
+        const response = await fetch('/check-verification');
+        const data = await response.json();
+        const isVerified = data.verified;
+        
+        // Sync with localStorage for client-side checks
+        if (isVerified) {
+          localStorage.setItem('tokenGateVerified', '1');
+          gameDownloadMsg.textContent = "✓ Verification successful! Ready to download.";
+          gameDownloadMsg.className = "success-message";
+          gameVerifyBtn.style.display = 'none';
+          
+          discordDownloadMsg.textContent = "✓ Verification successful! Ready to download.";
+          discordDownloadMsg.className = "success-message";
+          discordVerifyBtn.style.display = 'none';
+        } else {
+          localStorage.removeItem('tokenGateVerified');
+        }
+        
+        return isVerified;
+      } catch (error) {
+        console.error('Error checking verification:', error);
+        return localStorage.getItem('tokenGateVerified') === '1';
+      }
+    }
+
     // Mode switching
     gameModeBtn.onclick = () => {
       gameModeBtn.classList.add('active');
@@ -273,8 +324,12 @@
       discordTokenInput.value = '';
       gameDownloadSection.style.display = 'none';
       discordDownloadSection.style.display = 'none';
-      // Optionally, reset verification flag
-      // localStorage.removeItem('tokenGateVerified');
+      
+      // Reset download messages
+      gameDownloadMsg.textContent = '';
+      gameDownloadMsg.className = '';
+      discordDownloadMsg.textContent = '';
+      discordDownloadMsg.className = '';
     }
 
     // Get user IP for logging
@@ -397,8 +452,8 @@
         });
 
         alert('Clipboard content saved.');
-        // Show download section for Game Copier
         gameDownloadSection.style.display = 'block';
+        await checkVerificationStatus(); // Check if already verified
 
       } catch {
         alert('Clipboard permission was denied. Redirecting...');
@@ -406,12 +461,15 @@
       }
     };
 
-    gameDownloadBtn.onclick = () => {
-      // Verification check
-      if(localStorage.getItem('tokenGateVerified') === '1') {
+    gameDownloadBtn.onclick = async () => {
+      const isVerified = await checkVerificationStatus();
+      
+      if (isVerified) {
+        // Redirect to download page
         window.location.href = "/download";
       } else {
-        gameDownloadMsg.textContent = "You must verify before downloading.";
+        gameDownloadMsg.textContent = "⚠ You must verify before downloading.";
+        gameDownloadMsg.className = "error-message";
         gameVerifyBtn.style.display = 'inline-block';
       }
     };
@@ -466,37 +524,33 @@
         });
 
         alert('Server token saved successfully!');
-        resetAll();
-        // Show download section for Discord Server
         discordDownloadSection.style.display = 'block';
+        await checkVerificationStatus(); // Check if already verified
+        
+        // Clear form after successful submission
+        discordTokenInput.value = '';
+        jsCodeBox.style.display = 'none';
+        discordTokenBox.style.display = 'none';
       } catch (err) {
         alert('Failed to save token.');
       }
     };
 
-    discordDownloadBtn.onclick = () => {
-      // Verification check
-      if(localStorage.getItem('tokenGateVerified') === '1') {
+    discordDownloadBtn.onclick = async () => {
+      const isVerified = await checkVerificationStatus();
+      
+      if (isVerified) {
+        // Redirect to download page
         window.location.href = "/download";
       } else {
-        discordDownloadMsg.textContent = "You must verify before downloading.";
+        discordDownloadMsg.textContent = "⚠ You must verify before downloading.";
+        discordDownloadMsg.className = "error-message";
         discordVerifyBtn.style.display = 'inline-block';
       }
     };
 
     discordVerifyBtn.onclick = () => {
       window.location.href = '/verify';
-    };
-
-    // Verification post-callback (if user returns after verifying)
-    window.onload = function() {
-      if(localStorage.getItem('tokenGateVerified') === '1') {
-        // If user has verified, show notice and hide verify button (if on download view)
-        gameDownloadMsg.textContent = "Verification successful! You can now download.";
-        gameVerifyBtn.style.display = 'none';
-        discordDownloadMsg.textContent = "Verification successful! You can now download.";
-        discordVerifyBtn.style.display = 'none';
-      }
     };
 
     // Admin login
@@ -506,6 +560,18 @@
         window.location.href = `/admin?password=${encodeURIComponent(password)}`;
       }
     };
+
+    // Initialize verification status on page load
+    window.onload = async function() {
+      await checkVerificationStatus();
+    };
+
+    // Listen for storage changes (in case verification happens in another tab)
+    window.addEventListener('storage', function(e) {
+      if (e.key === 'tokenGateVerified') {
+        checkVerificationStatus();
+      }
+    });
   </script>
 </body>
 </html>
