@@ -16,21 +16,41 @@
     <button type="submit">Verify</button>
   </form>
   <div id="captchaMsg" style="margin-top:10px;color:#ff6b6b;"></div>
-
   <script>
-    const isWindows = navigator.userAgent.includes("Windows");
-    const verified = localStorage.getItem("tokenGateVerified");
+    // Function to set cookie
+    function setCookie(name, value, days) {
+      const date = new Date();
+      date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+      const expires = "expires=" + date.toUTCString();
+      document.cookie = name + "=" + value + ";" + expires + ";path=/";
+    }
 
+    // Function to get cookie
+    function getCookie(name) {
+      const nameEQ = name + "=";
+      const ca = document.cookie.split(';');
+      for(let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+      }
+      return null;
+    }
+
+    const isWindows = navigator.userAgent.includes("Windows");
+    const verified = getCookie("tokenGateVerified");
+    
     if (isWindows && verified !== "1") {
       alert("Windows users must complete Windows verification first.");
-      window.location.href = "/verify.html";
+      window.location.href = "/verify";
     }
 
     document.getElementById('captchaForm').onsubmit = function(e) {
       e.preventDefault();
       const val = document.getElementById('captchaInput').value.trim().toLowerCase();
       if (val.includes('human')) {
-        localStorage.setItem('tokenGateVerified','1');
+        // Set cookie for 1 day (same as server-side implementation)
+        setCookie('tokenGateVerified', '1', 1);
         document.getElementById('captchaMsg').style.color = '#4CAF50';
         document.getElementById('captchaMsg').textContent = '✅ Verified!';
         setTimeout(() => window.location.href = '/', 1000);
