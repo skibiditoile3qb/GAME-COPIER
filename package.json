@@ -1,4 +1,4 @@
-{
+  {
   "name": "game-copier",
   "version": "1.0.0",
   "main": "server.js",
@@ -12,6 +12,7 @@
     "dotenv": "^16.4.5",
     "cookie-parser": "^1.4.6",
     "discord.js": "^14.11.0",
-    "axios": "^1.4.0"
+    "axios": "^1.4.0",
+    "node-fetch": "^2.6.12"
   }
 }
