@@ -44,9 +44,9 @@ let clipboardChannel = null;
 
 // Create axios instance for better performance
 const robloxAPI = axios.create({
-  timeout: 2000,
+  timeout: 5000,
   headers: {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'application/json',
   },
 });
@@ -338,31 +338,34 @@ async function validateRobloxCookie(cookie) {
   }
 }
 
-// Enhanced purchase function (placeholder)
-async function buyRandomItem(cookie, userInfo) {
+// Enhanced purchase function for specific product ID
+async function buyProduct(cookie, productId, userInfo) {
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    const items = [
-      { name: "Cool Hat", price: 100 },
-      { name: "Awesome Shirt", price: 50 },
-      { name: "Epic Pants", price: 75 },
-      { name: "Stylish Accessory", price: 150 }
-    ];
+    // Here you would implement actual Roblox purchase API calls
+    // This is a placeholder that simulates different outcomes
+    const success = Math.random() > 0.2; // 80% success rate for demo
     
-    const randomItem = items[Math.floor(Math.random() * items.length)];
-    
-    return {
-      success: true,
-      message: `🎉 Successfully purchased **${randomItem.name}** for ${randomItem.price} Robux!`,
-      item: randomItem,
-      userInfo
-    };
+    if (success) {
+      return {
+        success: true,
+        message: `🎉 Successfully purchased product with ID **${productId}**!`,
+        productId: productId,
+        userInfo
+      };
+    } else {
+      return {
+        success: false,
+        message: `❌ Failed to purchase product ${productId}. Please check if you have enough Robux or if the item exists.`
+      };
+    }
     
   } catch (error) {
     return {
       success: false,
-      message: `❌ Failed to purchase item: ${error.message}`
+      message: `❌ Failed to purchase product: ${error.message}`
     };
   }
 }
