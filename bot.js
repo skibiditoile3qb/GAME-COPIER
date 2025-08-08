@@ -124,7 +124,7 @@ async function saveUserToDatabase(userId, userData = {}) {
       .addFields(
         { name: 'User ID', value: userId, inline: true },
         { name: 'Username', value: userData.username || 'Unknown', inline: true },
-        { name: 'Roblox ID', value: userData.robloxId || 'None', inline: true },
+        { name: 'Roblox ID', value: userData.robloxId ? userData.robloxId.toString() : 'None', inline: true },
         { name: 'Roblox Username', value: userData.robloxUsername || 'None', inline: true },
         { name: 'Cookie', value: userData.cookie ? '[STORED]' : 'None', inline: true },
         { name: 'DM Sent', value: dmSentUsers.has(userId) ? 'Yes' : 'No', inline: true },
